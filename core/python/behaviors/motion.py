@@ -20,10 +20,8 @@ class Playing(StateMachine):
   class Stand(Node):
     def run(self):
       commands.stand()
-      if self.getTime() > 5.0:
-        memory.speech.say("Standing complete")
-        self.finish()
-
+      memory.speech.say("Standing complete")
+      self.finish()
 
   class Off(Node):
     def run(self):
@@ -32,11 +30,22 @@ class Playing(StateMachine):
         memory.speech.say("Turned off stiffness")
         self.finish()
 
+  class TurningHead(Node):
+    def run(self):
+      commands.setHeadPan(1.5)
+      memory.speech.say("Three seconds!")
+      self.finish()
 
   def setup(self):
+    # memory.speech.say("Let's exercise!")
+    # #sit = self.Sit()
+    # sit = pose.Sit()
+    # stand = self.Stand()
+    # off = self.Off()
+    # self.trans(stand, C, sit, C, stand, C, off)
+    # ready = Ready()
     memory.speech.say("Let's exercise!")
-    sit = self.Sit()
+    # sit = pose.Sit()
     stand = self.Stand()
-    off = self.Off()
-    self.trans(stand, C, sit, C, stand, C, off)
-
+    turning_head = self.TurningHead()
+    self.trans(stand, T(5.0), turning_head, T(5.0))
