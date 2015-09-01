@@ -9,8 +9,7 @@ class Ready(Task):
     if self.getTime() > 3.0:
       ball = memory.world_objects.getObjPtr(core.WO_BALL)
       if ball.seen:
-        print("BAAAALLLL Found!")
-        print(ball.imageCenterX)
-        print(ball.imageCenterY)
+        print("Ball Found at ({}, {})".format(ball.imageCenterX, ball.imageCenterY))
+
 
 
