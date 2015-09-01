@@ -2,6 +2,8 @@ import memory, pose, commands, cfgstiff
 from task import Task
 from state_machine import *
 
+# Motions
+
 class Sit(Node):
   def run(self):
     pose.Sit()
@@ -44,6 +46,14 @@ class WalkForward(Node):
     memory.speech.say("Walking Forward!")
     commands.setWalkVelocity(0.2, 0, 0)
 
+    if self.getTime() > 10.0:
+      self.finish()
+
+class WalkInCurve(Node):
+  def run(self):
+    memory.speech.say("Walking in curve!")
+    commands.setWalkVelocity(0.2, 0, 0.2)
+
     if self.getTime() > 5.0:
       self.finish()
 
@@ -55,7 +65,10 @@ class Ready(Task):
       self.finish()
 
 
+# Complex Tasks
+
 class Set(StateMachine):
+  """Sitting, Standing, and Head Turning"""
   def setup(self):
     memory.speech.say("Let's stretch!")
 
@@ -69,6 +82,7 @@ class Set(StateMachine):
     self.trans(sit, C, stand_2, C, turning_head, C, sit_2, C, off)
 
 class Playing(StateMachine):
+  """Forward Walking and Turn in Place"""
   def setup(self):
     memory.speech.say("Let's do the truffle shuffle!")
 
@@ -81,3 +95,16 @@ class Playing(StateMachine):
     off = Off()
 
     self.trans(stand, C, walk_forward, C, spin, C, sit, C, off)
+
+class Testing(StateMachine):
+  """Walk in a Curve"""
+  def setup(self):
+    memory.speech.say("Walking in a curve!")
+
+    # Movements
+    stand = Stand()
+    curve_walk = WalkInCurve()
+    sit = pose.Sit()
+    off = Off()
+
+    self.trans(stand, C, curve_walk, C, sit, C, off)
