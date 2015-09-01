@@ -2,50 +2,82 @@ import memory, pose, commands, cfgstiff
 from task import Task
 from state_machine import *
 
+class Sit(Node):
+  def run(self):
+    pose.Sit()
+    if self.getTime() > 3.0:
+      memory.speech.say("Sitting complete")
+      self.finish()
+
+class Stand(Node):
+  def run(self):
+    commands.stand()
+    if self.getTime() > 3.0:
+      memory.speech.say("Standing okay complete")
+      self.finish()
+
+class Off(Node):
+  def run(self):
+    commands.setStiffness(cfgstiff.Zero)
+    if self.getTime() > 3.0:
+      memory.speech.say("Turned off stiffness")
+      self.finish()
+
+class TurningHead(Node):
+  def run(self):
+    commands.setHeadPan(1.0, 1)
+    if self.getTime() > 5.0:
+      commands.setHeadPan(-1.0, 2)
+      memory.speech.say("Turn head complete!")
+      self.finish()
+
+class Spin(Node):
+  def run(self):
+    memory.speech.say("I am spinning")
+    commands.setWalkVelocity(0, 0, -0.25)
+
+    if self.getTime() > 5.0:
+      self.finish()
+
+class WalkForward(Node):
+  def run(self):
+    memory.speech.say("Walking Forward!")
+    commands.setWalkVelocity(0.2, 0, 0)
+
+    if self.getTime() > 5.0:
+      self.finish()
+
 class Ready(Task):
   def run(self):
     commands.standStraight()
-    if self.getTime() > 5.0:
+    if self.getTime() > 3.0:
       memory.speech.say("I am ready")
       self.finish()
 
-class Playing(StateMachine):
-  class Sit(Node):
-    def run(self):
-      pose.Sit()
-      if self.getTime() > 5.0:
-        memory.speech.say("Sitting complete")
-        self.finish()
 
-  class Stand(Node):
-    def run(self):
-      commands.stand()
-      memory.speech.say("Standing complete")
-      self.finish()
-
-  class Off(Node):
-    def run(self):
-      commands.setStiffness(cfgstiff.Zero)
-      if self.getTime() > 5.0:
-        memory.speech.say("Turned off stiffness")
-        self.finish()
-
-  class TurningHead(Node):
-    def run(self):
-      commands.setHeadPan(1.5)
-      memory.speech.say("Three seconds!")
-      self.finish()
-
+class Set(StateMachine):
   def setup(self):
-    # memory.speech.say("Let's exercise!")
-    # #sit = self.Sit()
-    # sit = pose.Sit()
-    # stand = self.Stand()
-    # off = self.Off()
-    # self.trans(stand, C, sit, C, stand, C, off)
-    # ready = Ready()
-    memory.speech.say("Let's exercise!")
-    # sit = pose.Sit()
-    stand = self.Stand()
-    turning_head = self.TurningHead()
-    self.trans(stand, T(5.0), turning_head, T(5.0))
+    memory.speech.say("Let's stretch!")
+
+    # Movements
+    sit = pose.Sit()
+    stand_2 = Stand()
+    turning_head = TurningHead()
+    sit_2 = pose.Sit()
+    off = Off()
+
+    self.trans(sit, C, stand_2, C, turning_head, C, sit_2, C, off)
+
+class Playing(StateMachine):
+  def setup(self):
+    memory.speech.say("Let's do the truffle shuffle!")
+
+    # Movements
+    stand = Stand()
+    walk_forward = WalkForward()
+    spin = Spin()
+    sit = pose.Sit()
+    stand_2 = Stand()
+    off = Off()
+
+    self.trans(stand, C, walk_forward, C, spin, C, sit, C, off)
