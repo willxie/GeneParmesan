@@ -111,6 +111,15 @@ void ImageProcessor::processFrame(){
 
 void ImageProcessor::detectBall() {
   int imageX, imageY;
+
+  // Try to find goal every frame
+  WorldObject* goal = &vblocks_.world_object->objects_[WO_UNKNOWN_GOAL];
+  WorldObject* circle = &vblocks_.world_object->objects_[WO_CENTER_CIRCLE];
+  if (findGoal(goal->imageCenterX, goal->imageCenterY, circle->imageCenterY)) {
+    goal->seen = true;
+  }
+  ///////////////////////////////
+
   if(!findBall(imageX, imageY)) return; // function defined elsewhere that fills in imageX, imageY by reference
   WorldObject* ball = &vblocks_.world_object->objects_[WO_BALL];
 
@@ -154,7 +163,7 @@ bool ImageProcessor::findBall(int& imageX, int& imageY) {
 	return (total > 10);
 }
 
-bool ImageProcessor::findGoal(int& imageX, int& imageY) {
+bool ImageProcessor::findGoal(int& imageX, int& imageY, int& numBluePixels) {
 	int total = 0, totalX = 0, totalY = 0;
 	int c_temp;
 
@@ -173,16 +182,17 @@ bool ImageProcessor::findGoal(int& imageX, int& imageY) {
 	  }
 	}
 
+	numBluePixels = total;
+
 	if (total > 0) {
 		imageX = totalX / total;
 		imageY = totalY / total;
 	}
+//	printf("c_ORANGE = %d,\t c_temp = %d\n", (int)c_ORANGE, (int)c_temp);
+	printf("total blue pixels: %d, \t %d, \t %d, \n", total, imageX, imageY);
 
-	printf("total blue pixels: %d, \t goal center = (%d, %d)\n", total, imageX, imageY);
-
-	return (total > 10);
+	return (total > 400);
 }
-
 
 int ImageProcessor::getTeamColor() {
   return vblocks_.robot_state->team_;
