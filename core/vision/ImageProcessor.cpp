@@ -127,7 +127,6 @@ void ImageProcessor::detectBall() {
 
 bool ImageProcessor::findBall(int& imageX, int& imageY) {
 	int total = 0, totalX = 0, totalY = 0;
-
 	int c_temp;
 
 	// Process from left to right
@@ -145,17 +144,45 @@ bool ImageProcessor::findBall(int& imageX, int& imageY) {
 	  }
 	}
 
+	if (total > 0) {
+		imageX = totalX / total;
+		imageY = totalY / total;
+	}
 //	printf("c_ORANGE = %d,\t c_temp = %d\n", (int)c_ORANGE, (int)c_temp);
+//	printf("total orange pixels: %d, \t %d, \t %d, \n", total, imageX, imageY);
+
+	return (total > 10);
+}
+
+bool ImageProcessor::findGoal(int& imageX, int& imageY) {
+	int total = 0, totalX = 0, totalY = 0;
+	int c_temp;
+
+	// Process from left to right
+	for(int x = 0; x < 320; x++) {
+	  // Process from top to bottom
+	  for(int y = 0; y < 240; y++) {
+	    // Retrieve the segmented color of the pixel at (x,y)
+	    auto c = getSegImg()[y * iparams_.width + x];
+	    c_temp = c;
+	    if(c == c_BLUE) {
+	      totalX += x;
+	      totalY += y;
+	      total++;
+	    }
+	  }
+	}
 
 	if (total > 0) {
 		imageX = totalX / total;
 		imageY = totalY / total;
 	}
 
-//	printf("total orange pixels: %d, \t %d, \t %d, \n", total, imageX, imageY);
+	printf("total blue pixels: %d, \t goal center = (%d, %d)\n", total, imageX, imageY);
 
 	return (total > 10);
 }
+
 
 int ImageProcessor::getTeamColor() {
   return vblocks_.robot_state->team_;
