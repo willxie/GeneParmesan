@@ -23,7 +23,17 @@ joint_sensors = {"HeadYaw": core.HeadYaw,
  "RShoulderPitch": core.RShoulderPitch,
  "RShoulderRoll": core.RShoulderRoll,
  "RElbowYaw": core.RElbowYaw,
- "RElbowRoll": core.RElbowRoll,
+ "RElbowRoll": core.RElbowRoll
+}
+
+pressure_sensors = {"fsrLFL": core.fsrLFL,
+  "fsrLFR": core.fsrLFR,
+  "fsrLRL": core.fsrLRL,
+  "fsrLRR": core.fsrLRR,
+  "fsrRFL": core.fsrRFL,
+  "fsrRFR": core.fsrRFR,
+  "fsrRRL": core.fsrRRL,
+  "fsrRRR": core.fsrRRR
 }
 
 class Ready(Task):
@@ -32,7 +42,13 @@ class Ready(Task):
     commands.setStiffness(cfgstiff.Zero)
 
     if self.getTime() > 5.0:
+      print('=============> Joint Sensors <=============')
       for joint, index in joint_sensors.items():
         print('{}: {}'.format(joint, core.joint_values[index]))
-      
+
+      print
+      print('=============> Pressure Sensors <=============')
+      for pressure_sensor, index in pressure_sensors.items():
+        print('{}: {}'.format(pressure_sensor, core.sensor_values[index]))
+
       self.resetTime()
