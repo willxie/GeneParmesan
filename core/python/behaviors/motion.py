@@ -46,7 +46,7 @@ class WalkForward(Node):
     memory.speech.say("Walking Forward!")
     commands.setWalkVelocity(0.2, 0, 0)
 
-    if self.getTime() > 10.0:
+    if self.getTime() > 5.0:
       self.finish()
 
 class WalkInCurve(Node):
@@ -96,7 +96,7 @@ class Playing(StateMachine):
 
     self.trans(stand, C, walk_forward, C, spin, C, sit, C, off)
 
-class Testing(StateMachine):
+class Penalised(StateMachine):
   """Walk in a Curve"""
   def setup(self):
     memory.speech.say("Walking in a curve!")
