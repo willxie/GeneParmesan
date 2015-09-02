@@ -146,14 +146,15 @@ bool ImageProcessor::findBall(int& imageX, int& imageY) {
 	}
 
 //	printf("c_ORANGE = %d,\t c_temp = %d\n", (int)c_ORANGE, (int)c_temp);
-//	printf("total orange pixels: %d, \t %d, \t %d, \n", total, totalX, totalY);
 
 	if (total > 0) {
 		imageX = totalX / total;
 		imageY = totalY / total;
 	}
 
-	return (total > 0);
+//	printf("total orange pixels: %d, \t %d, \t %d, \n", total, imageX, imageY);
+
+	return (total > 10);
 }
 
 int ImageProcessor::getTeamColor() {
