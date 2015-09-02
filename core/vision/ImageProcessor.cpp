@@ -110,10 +110,50 @@ void ImageProcessor::processFrame(){
 }
 
 void ImageProcessor::detectBall() {
+  int imageX, imageY;
+  if(!findBall(imageX, imageY)) return; // function defined elsewhere that fills in imageX, imageY by reference
+  WorldObject* ball = &vblocks_.world_object->objects_[WO_BALL];
+
+  ball->imageCenterX = imageX;
+  ball->imageCenterY = imageY;
+
+  Position p = cmatrix_.getWorldPosition(imageX, imageY);
+  ball->visionBearing = cmatrix_.bearing(p);
+  ball->visionElevation = cmatrix_.elevation(p);
+  ball->visionDistance = cmatrix_.groundDistance(p);
+
+  ball->seen = true;
 }
 
-void ImageProcessor::findBall(int& imageX, int& imageY) {
-  imageX = imageY = 0;
+bool ImageProcessor::findBall(int& imageX, int& imageY) {
+	int total = 0, totalX = 0, totalY = 0;
+
+	int c_temp;
+
+	// Process from left to right
+	for(int x = 0; x < 320; x++) {
+	  // Process from top to bottom
+	  for(int y = 0; y < 240; y++) {
+	    // Retrieve the segmented color of the pixel at (x,y)
+	    auto c = getSegImg()[y * iparams_.width + x];
+	    c_temp = c;
+	    if(c == c_ORANGE) {
+	      totalX += x;
+	      totalY += y;
+	      total++;
+	    }
+	  }
+	}
+
+//	printf("c_ORANGE = %d,\t c_temp = %d\n", (int)c_ORANGE, (int)c_temp);
+//	printf("total orange pixels: %d, \t %d, \t %d, \n", total, totalX, totalY);
+
+	if (total > 0) {
+		imageX = totalX / total;
+		imageY = totalY / total;
+	}
+
+	return (total > 0);
 }
 
 int ImageProcessor::getTeamColor() {

@@ -37,7 +37,7 @@ class ImageProcessor {
     BallCandidate* getBestBallCandidate();
     bool isImageLoaded();
     void detectBall();
-    void findBall(int& imageX, int& imageY);
+    bool findBall(int& imageX, int& imageY);
   private:
     int getTeamColor();
     double getCurrentTime();
