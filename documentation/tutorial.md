@@ -18,7 +18,7 @@ This section will walk you through creating a simple Hello World program on the 
 4. In the fourth window, run the tool: `~/nao/trunk/bin/tool`.
 5. In the fifth window, navigate to `~/nao/trunk/core/python` on your machine.
 6. Open `behaviors/main.py`. This script defines the different states that the robot is in, which are listed in the Files window in the tool. You are going to edit the `Playing` state.
-7. Add a definition for a `run` method that makes two calls: `memory.say('Hello, World!')` and `self.finish()`. The first command will call the text to voice engine. The second command will indicate that this task has been completed.
+7. Add a definition for a `run` method that makes two calls: `memory.speech.say('Hello, World!')` and `self.finish()`. The first command will call the text to voice engine. The second command will indicate that this task has been completed.
 10. Upload your python scripts to the robot by clicking the "Send Python" button on the Files window in the tool. Alternatively, you can run the script `~/nao/trunk/build/copy_robot [Robot IP] python`
 11. Restart python on the robot by clicking the "Restart Python" button in the Files window.
 12. Run the main behavior by choosing "main" in the Files window and clicking "Run behavior"
@@ -107,7 +107,25 @@ A behavior script may then check the `seen` variable for the ball object as foll
 
 ```python
 import core
-ball = core.world_objects.getObjPtr(core.WO_BALL)
+ball = memory.world_objects.getObjPtr(core.WO_BALL)
 if ball.seen:
   walkTowardBall()
 ```
+
+Segmented color can be accessed via the segmented image arrays in the `RobotVisionBlock`. The ImageProcessor class provides a method for accessing the proper array for the current camera being processed. For example, the following code would produce a count of all orange pixels in the current image:
+
+```cpp
+auto total = 0;
+// Process from left to right
+for(int x = 0; x < 320; x++) {
+  // Process from top to bottom
+  for(int y = 0; y < 240; y++) {
+    // Retrieve the segmented color of the pixel at (x,y)
+    auto c = getSegImg()[y * iparams_.width + x];
+    if(c == c_ORANGE)
+      total++;
+  }
+}
+printf("total orange pixels: %i\n", total);
+```
+
