@@ -15,7 +15,7 @@ class Stand(Node):
   def run(self):
     commands.stand()
     if self.getTime() > 3.0:
-      memory.speech.say("Standing okay complete")
+      memory.speech.say("Standing complete")
       self.finish()
 
 class Off(Node):
@@ -38,7 +38,7 @@ class Spin(Node):
     memory.speech.say("I am spinning")
     commands.setWalkVelocity(0, 0, -0.25)
 
-    if self.getTime() > 5.0:
+    if self.getTime() > 10.0:
       self.finish()
 
 class WalkForward(Node):
@@ -46,15 +46,15 @@ class WalkForward(Node):
     memory.speech.say("Walking Forward!")
     commands.setWalkVelocity(0.2, 0, 0)
 
-    if self.getTime() > 5.0:
+    if self.getTime() > 10.0:
       self.finish()
 
 class WalkInCurve(Node):
   def run(self):
     memory.speech.say("Walking in curve!")
-    commands.setWalkVelocity(0.2, 0, 0.2)
+    commands.setWalkVelocity(0.3, 0, 0.1)
 
-    if self.getTime() > 5.0:
+    if self.getTime() > 15.0:
       self.finish()
 
 class Ready(Task):
