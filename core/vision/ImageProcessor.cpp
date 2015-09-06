@@ -97,18 +97,72 @@ void ImageProcessor::setCalibration(RobotCalibration calibration){
   calibration_ = new RobotCalibration(calibration);
 }
 
+struct ImageProcessor::RunLength {
+	unsigned char color;
+	int x_left;
+	int x_right;
+	RunLength* parent = this;
+};
+
+void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows) {
+	/* Compute Run Length Encoding */
+	// Process from left to right
+	// Process from top to bottom
+	for(int y = 0; y < 240; y++) {
+		std::vector<RunLength>& row = rows[y];
+		RunLength curRunLength;
+		curRunLength.x_left = 0;
+		curRunLength.color = getSegImg()[y * iparams_.width + 0];
+		for(int x = 1; x < 320; x++) {
+			// Retrieve the segmented color of the pixel at (x,y)
+			unsigned char c = getSegImg()[y * iparams_.width + x];
+			// End of current run length?
+			if (curRunLength.color != c) {
+				curRunLength.x_right = x-1;
+				row.push_back(curRunLength);
+
+				// Create new run length
+				curRunLength.x_left = x;
+				curRunLength.color = c;
+			}
+		}
+		curRunLength.x_right = 320-1;
+		row.push_back(curRunLength);
+	}
+
+	// TODO: It only samples every other row and every 4th column. The rest is black (color = 0)
+
+
+	// Print out RLE rows
+	int r = 0;
+	for (auto& row : rows) {
+		printf("===> Row #%d <===", r);
+		for (auto& runLength : row) {
+			auto length = (runLength.x_right-runLength.x_left) + 1;
+			printf("L:%dC:%d ", length, runLength.color);
+		}
+		printf("\n");
+		r++;
+	}
+}
+
 void ImageProcessor::processFrame(){
   if(vblocks_.robot_state->WO_SELF == WO_TEAM_COACH && camera_ == Camera::BOTTOM) return;
   visionLog(30, "Process Frame camera %i", camera_);
 
   updateTransform();
-  
+
   // Horizon calculation
   visionLog(30, "Calculating horizon line");
   HorizonLine horizon = HorizonLine::generate(iparams_, cmatrix_, 30000);
   vblocks_.robot_vision->horizon = horizon;
   visionLog(30, "Classifying Image", camera_);
   if(!classifier_->classifyImage(color_table_)) return;
+
+  std::vector<std::vector<RunLength> > rows (240, std::vector<RunLength>());
+
+  computeRunLength(rows);
+
   detectBall();
   beacon_detector_->findBeacons();
 }

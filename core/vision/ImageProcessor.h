@@ -33,6 +33,8 @@ class ImageProcessor {
     const ImageParams& getImageParams() const { return iparams_; }
     const CameraMatrix& getCameraMatrix();
     void setCalibration(RobotCalibration);
+    struct RunLength;
+    void computeRunLength(std::vector<std::vector<RunLength> >& rows);
     void enableCalibration(bool value);
     void updateTransform();
     std::vector<BallCandidate*> getBallCandidates();
