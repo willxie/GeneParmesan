@@ -108,21 +108,24 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 	/* Compute Run Length Encoding */
 	// Process from left to right
 	// Process from top to bottom
-	for(int y = 0; y < 240; y++) {
-		std::vector<RunLength>& row = rows[y];
+	// NOTE: Skip rows because the image coming from getSegImg() is already downsampled
+	for(int y = 0; y < 240; y += 2) {
+//		std::vector<RunLength> temp_row;
+		rows.push_back(std::vector<RunLength>());
+		std::vector<RunLength>& row = rows.back();
 		RunLength curRunLength;
 		curRunLength.x_left = 0;
 		curRunLength.color = getSegImg()[y * iparams_.width + 0];
-		for(int x = 1; x < 320; x++) {
+		for(int x = 4; x < 320; x += 4) {
 			// Retrieve the segmented color of the pixel at (x,y)
 			unsigned char c = getSegImg()[y * iparams_.width + x];
 			// End of current run length?
 			if (curRunLength.color != c) {
-				curRunLength.x_right = x-1;
+				curRunLength.x_right = (x/4)-1;
 				row.push_back(curRunLength);
 
 				// Create new run length
-				curRunLength.x_left = x;
+				curRunLength.x_left = x/4;
 				curRunLength.color = c;
 			}
 		}
@@ -132,18 +135,22 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 
 	// TODO: It only samples every other row and every 4th column. The rest is black (color = 0)
 
-
 	// Print out RLE rows
-	int r = 0;
+	int r = 0, row_width = 0, num_rows = 0;
 	for (auto& row : rows) {
-		printf("===> Row #%d <===", r);
+		printf("===> Row #%d <===\n", r);
 		for (auto& runLength : row) {
 			auto length = (runLength.x_right-runLength.x_left) + 1;
 			printf("L:%dC:%d ", length, runLength.color);
+			row_width += length;
 		}
+		printf("Row Width: %d\n", row_width);
+		row_width = 0;
+		num_rows++;
 		printf("\n");
 		r++;
 	}
+	printf("Num rows: %d\n", num_rows);
 }
 
 void ImageProcessor::processFrame(){
@@ -159,9 +166,13 @@ void ImageProcessor::processFrame(){
   visionLog(30, "Classifying Image", camera_);
   if(!classifier_->classifyImage(color_table_)) return;
 
-  std::vector<std::vector<RunLength> > rows (240, std::vector<RunLength>());
-
+  // Compute Run Lengths
+  std::vector<std::vector<RunLength> > rows;
+  //(240, std::vector<RunLength>());
   computeRunLength(rows);
+
+  // Link every RLE to its parent
+//  unionFind(rows);
 
   detectBall();
   beacon_detector_->findBeacons();
