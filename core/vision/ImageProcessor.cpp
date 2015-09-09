@@ -110,7 +110,6 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 	// Process from top to bottom
 	// NOTE: Skip rows because the image coming from getSegImg() is already downsampled
 	for(int y = 0; y < 240; y += 2) {
-//		std::vector<RunLength> temp_row;
 		rows.push_back(std::vector<RunLength>());
 		std::vector<RunLength>& row = rows.back();
 		RunLength curRunLength;
@@ -129,18 +128,16 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 				curRunLength.color = c;
 			}
 		}
-		curRunLength.x_right = 320-1;
+		curRunLength.x_right = (320 / 4) - 1; // Last row index of downsampled frame
 		row.push_back(curRunLength);
 	}
-
-	// TODO: It only samples every other row and every 4th column. The rest is black (color = 0)
 
 	// Print out RLE rows
 	int r = 0, row_width = 0, num_rows = 0;
 	for (auto& row : rows) {
 		printf("===> Row #%d <===\n", r);
 		for (auto& runLength : row) {
-			auto length = (runLength.x_right-runLength.x_left) + 1;
+			auto length = (runLength.x_right - runLength.x_left) + 1;
 			printf("L:%dC:%d ", length, runLength.color);
 			row_width += length;
 		}
