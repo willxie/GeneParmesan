@@ -35,6 +35,8 @@ class ImageProcessor {
     void setCalibration(RobotCalibration);
     struct RunLength;
     void computeRunLength(std::vector<std::vector<RunLength> >& rows);
+    struct Blob;
+    void computeBlobs(std::vector<std::vector<RunLength> >& rows, std::map<RunLength*, Blob>& blobs);
     void enableCalibration(bool value);
     void updateTransform();
     std::vector<BallCandidate*> getBallCandidates();

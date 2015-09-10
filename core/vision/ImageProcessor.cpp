@@ -104,6 +104,14 @@ struct ImageProcessor::RunLength {
 	RunLength* parent = this;
 };
 
+struct ImageProcessor::Blob {
+	/* Bounding box coordinates */
+	int top;
+	int bottom;
+	int left;
+	int right;
+};
+
 void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows) {
 	/* Compute Run Length Encoding */
 	// Process from left to right
@@ -150,6 +158,44 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 	printf("Num rows: %d\n", num_rows);
 }
 
+void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, std::map<RunLength*, Blob>& blobs) {
+	/* From the run lengths, fill in blobs */
+
+	int row = 0;
+	for (auto& runLengthRow : rows) {
+		for (auto& runLength : runLengthRow) {
+			// Is this run length its own parent?
+			if (runLength.parent == &runLength) {
+				// Create a new blob and add it to the rest
+				Blob b;
+				b.top = b.bottom = row;
+				b.left = runLength.x_left;
+				b.right = runLength.x_right;
+
+				blobs[&runLength] = b;
+			} else {
+				// This run length has a parent. Find it and update the
+				// associated blob
+				RunLength *current = &runLength;
+				RunLength *parent = runLength.parent;
+				while (current != parent) {
+					current = parent;
+					parent = parent->parent;
+				}
+
+				// Retrieve the blob associated with this parent
+				Blob& b = blobs[parent];
+
+				b.left = min(runLength.x_left, b.left);
+				b.right = max(runLength.x_right, b.right);
+				b.bottom = max(row, b.bottom);
+				b.top = min(row, b.top);
+			}
+		}
+		row++;
+	}
+}
+
 void ImageProcessor::processFrame(){
   if(vblocks_.robot_state->WO_SELF == WO_TEAM_COACH && camera_ == Camera::BOTTOM) return;
   visionLog(30, "Process Frame camera %i", camera_);
@@ -165,11 +211,11 @@ void ImageProcessor::processFrame(){
 
   // Compute Run Lengths
   std::vector<std::vector<RunLength> > rows;
-  //(240, std::vector<RunLength>());
   computeRunLength(rows);
 
-  // Link every RLE to its parent
-//  unionFind(rows);
+  // Detect Blobs
+  std::map<RunLength*, Blob> blobs;
+  computeBlobs(rows, blobs);
 
   detectBall();
   beacon_detector_->findBeacons();
@@ -184,7 +230,6 @@ void ImageProcessor::detectBall() {
   if (findGoal(goal->imageCenterX, goal->imageCenterY, circle->imageCenterY)) {
     goal->seen = true;
   }
-  ///////////////////////////////
 
   if(!findBall(imageX, imageY)) return; // function defined elsewhere that fills in imageX, imageY by reference
   WorldObject* ball = &vblocks_.world_object->objects_[WO_BALL];
