@@ -37,7 +37,7 @@ class ImageProcessor {
     void computeRunLength(std::vector<std::vector<RunLength> >& rows);
     struct Blob;
     void computeBlobs(std::vector<std::vector<RunLength> >& rows, std::map<RunLength*, Blob>& blobs);
-    RunLength* findRunLengthGrandParent(RunLength& topRunLength);
+    RunLength* findRunLengthGrandParent(RunLength* topRunLength);
     void unionFind(std::vector<std::vector<RunLength> >& rows);
     void enableCalibration(bool value);
     void updateTransform();
