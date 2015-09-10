@@ -18,7 +18,9 @@ class BeaconDetector;
 /// @ingroup vision
 class ImageProcessor {
   public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW  
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    struct RunLength;
+    struct Blob;
     ImageProcessor(VisionBlocks& vblocks, const ImageParams& iparams, Camera::Type camera);
     void processFrame();
     void init(TextLogger*);
@@ -33,12 +35,10 @@ class ImageProcessor {
     const ImageParams& getImageParams() const { return iparams_; }
     const CameraMatrix& getCameraMatrix();
     void setCalibration(RobotCalibration);
-    struct RunLength;
     void computeRunLength(std::vector<std::vector<RunLength> >& rows);
-    struct Blob;
-    void computeBlobs(std::vector<std::vector<RunLength> >& rows, std::map<RunLength*, Blob>& blobs);
     RunLength* findRunLengthGrandParent(RunLength* topRunLength);
     void unionFind(std::vector<std::vector<RunLength> >& rows);
+    void computeBlobs(std::vector<std::vector<RunLength> >& rows, std::map<RunLength*, Blob>& blobs);
     void enableCalibration(bool value);
     void updateTransform();
     std::vector<BallCandidate*> getBallCandidates();
