@@ -109,13 +109,13 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 	// Process from left to right
 	// Process from top to bottom
 	// NOTE: Skip rows because the image coming from getSegImg() is already downsampled
-	for(int y = 0; y < 240; y += 2) {
+	for (int y = 0; y < 240; y += 2) {
 		rows.push_back(std::vector<RunLength>());
 		std::vector<RunLength>& row = rows.back();
 		RunLength curRunLength;
 		curRunLength.x_left = 0;
 		curRunLength.color = getSegImg()[y * iparams_.width + 0];
-		for(int x = 4; x < 320; x += 4) {
+		for (int x = 4; x < 320; x += 4) {
 			// Retrieve the segmented color of the pixel at (x,y)
 			unsigned char c = getSegImg()[y * iparams_.width + x];
 			// End of current run length?
@@ -150,6 +150,49 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 	printf("Num rows: %d\n", num_rows);
 }
 
+// Given a candidate RunLength, find the uppermost parent (root of the tree)
+ImageProcessor::RunLength* ImageProcessor::findRunLengthGrandParent(RunLength& topRunLength) {
+	if (topRunLength.parent == &topRunLength) {
+		return &topRunLength;
+	}
+	return findRunLengthGrandParent(*topRunLength.parent);
+}
+
+void ImageProcessor::unionFind(std::vector<std::vector<RunLength> >& rows) {
+	// Skip first row
+	for (int y = 1; y < rows.size(); ++y) {
+		for (int x = 0; x < 80; ++x) {
+			int x_top = 0;
+			// Center on the bottom row and try to find the parent for each RunLength
+			for (RunLength curRunLength : rows[y]) {
+				RunLength& topRunLength = rows[y - 1][x_top];
+				// Check if the topRunLength is connected to curRunLength
+				if (curRunLength.x_left <= topRunLength.x_left  &&
+					topRunLength.x_left <= curRunLength.x_right &&
+					topRunLength.x_left <= curRunLength.x_left  &&
+					curRunLength.x_left <= topRunLength.x_right) {
+					// Check for color
+					if (curRunLength.color == topRunLength.color) {
+						// Check if curRunLength is already set
+						if (curRunLength.parent == &curRunLength) {
+							curRunLength.parent = findRunLengthGrandParent(topRunLength);
+						} else {
+							// If the curRunLength.parent is already set, it means
+							// that this is the second overlapped region
+							findRunLengthGrandParent(topRunLength)->parent = curRunLength.parent;
+						}
+					}
+					x_top++;
+				} else {
+					// We want to go back to the last connected topRunLength because
+					// the next curRunLength might connect with it as well
+					x_top--;
+				}
+			}
+		}
+	}
+}
+
 void ImageProcessor::processFrame(){
   if(vblocks_.robot_state->WO_SELF == WO_TEAM_COACH && camera_ == Camera::BOTTOM) return;
   visionLog(30, "Process Frame camera %i", camera_);
@@ -164,12 +207,12 @@ void ImageProcessor::processFrame(){
   if(!classifier_->classifyImage(color_table_)) return;
 
   // Compute Run Lengths
+  // Note that the dimension of rows is 120 x 80
   std::vector<std::vector<RunLength> > rows;
-  //(240, std::vector<RunLength>());
   computeRunLength(rows);
 
-  // Link every RLE to its parent
-//  unionFind(rows);
+  // Link RunLengths into regions with the same parent
+  unionFind(rows);
 
   detectBall();
   beacon_detector_->findBeacons();

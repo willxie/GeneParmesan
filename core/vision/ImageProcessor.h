@@ -35,6 +35,8 @@ class ImageProcessor {
     void setCalibration(RobotCalibration);
     struct RunLength;
     void computeRunLength(std::vector<std::vector<RunLength> >& rows);
+    RunLength* findRunLengthGrandParent(RunLength& topRunLength);
+    void unionFind(std::vector<std::vector<RunLength> >& rows);
     void enableCalibration(bool value);
     void updateTransform();
     std::vector<BallCandidate*> getBallCandidates();
