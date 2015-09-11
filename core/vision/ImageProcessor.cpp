@@ -345,21 +345,37 @@ void ImageProcessor::processFrame(){
 
   detectBall();
 
+  // Quick test code
+  std::vector<WorldObjectType> beacons = {
+		  WO_BEACON_BLUE_YELLOW,
+		  WO_BEACON_YELLOW_BLUE,
+		  WO_BEACON_BLUE_PINK,
+		  WO_BEACON_PINK_BLUE,
+		  WO_BEACON_PINK_YELLOW,
+		  WO_BEACON_YELLOW_PINK,
+  };
   auto fid = vblocks_.frame_info->frame_id;
   if(fid >= 6150) {
-	  Blob& blob = blob_list[0];
-	  auto& object = vblocks_.world_object->objects_[WO_BEACON_YELLOW_BLUE];
-	  // TODO Do we need to add one?
-	  object.imageCenterX = ((blob.left * 4) + (blob.right * 4)) / 2;
-	  object.imageCenterY = ((blob.top * 4) + (blob.bottom * 4)) / 2;
-	  float height = (blob.bottom - blob.top + 1) * 4;
-	  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, height);
-	  object.visionDistance = cmatrix_.groundDistance(position);
-	  object.visionBearing = cmatrix_.bearing(position);
-	  object.seen = true;
-	  object.fromTopCamera = camera_ == Camera::TOP;
-	  visionLog(30, "saw %s at (%"
-			  "i,%i) with calculated distance %2.4f", getName(WO_BEACON_YELLOW_BLUE), object.imageCenterX, object.imageCenterY, object.visionDistance);
+	  int beacon_count = 0;
+	  for (Blob& blob : blob_list) {
+		  auto& object = vblocks_.world_object->objects_[beacons[beacon_count]];
+		  // TODO Do we need to add one?
+		  object.imageCenterX = ((blob.left * 4) + (blob.right * 4)) / 2;
+		  object.imageCenterY = ((blob.top * 4) + (blob.bottom * 4)) / 2;
+		  float height = (blob.bottom - blob.top + 1) * 4;
+		  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, height);
+		  object.visionDistance = cmatrix_.groundDistance(position);
+		  object.visionBearing = cmatrix_.bearing(position);
+		  object.seen = true;
+		  object.fromTopCamera = camera_ == Camera::TOP;
+		  visionLog(30, "saw %s at (%"
+				  "i,%i) with calculated distance %2.4f", getName(beacons[beacon_count]), object.imageCenterX, object.imageCenterY, object.visionDistance);
+		  if (beacon_count < beacons.size() - 1) {
+			  beacon_count++;
+		  } else {
+			  break;
+		  }
+	  }
   } else {
 	  beacon_detector_->findBeacons();
   }
