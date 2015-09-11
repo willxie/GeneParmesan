@@ -12,6 +12,7 @@ struct ImageProcessor::RunLength {
 
 struct ImageProcessor::Blob {
 	/* Bounding box coordinates */
+	unsigned char color;
 	int top;
 	int bottom;
 	int left;
@@ -248,7 +249,8 @@ void ImageProcessor::unionFind(std::vector<std::vector<RunLength> >& rows) {
 	}
 }
 
-void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, std::map<RunLength*, Blob>& blobs) {
+
+void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, std::unordered_map<RunLength*, Blob>& blobs) {
 	// From the run lengths, fill in blobs
 	int row = 0;
 	for (auto& runLengthRow : rows) {
@@ -277,7 +279,7 @@ void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, st
 
 				// Retrieve the blob associated with this parent
 				Blob& b = blobs[parent];
-
+				b.color = runLength.color;
 				b.left = min(runLength.x_left, b.left);
 				b.right = max(runLength.x_right, b.right);
 				b.bottom = max(row, b.bottom);
@@ -314,23 +316,64 @@ void ImageProcessor::processFrame(){
 
   // Detect Blobs
   printf("Building blogs...\n");
-  std::map<RunLength*, Blob> blobs;
+  std::unordered_map<RunLength*, Blob> blobs;
   computeBlobs(rows, blobs);
 
-  printf("All blobs are created...\n");
+  // Sort blobs base on bounding box area
+  printf("Sorting blobs\n");
+  std::vector<Blob> blob_list (blobs.size());
+  for (auto& pair : blobs) {
+	  Blob& blob = pair.second;
+	  if (blob.color == c_YELLOW) {
+		  blob_list.push_back(blob);
+	  }
+  }
+  // Note that this sorts the list in descending order
+  std::sort(blob_list.begin(), blob_list.end(), [] (const Blob& b1, const Blob& b2) {
+	  int b1_area = (b1.right - b1.left + 1) * (b1.bottom - b1.top + 1);
+	  int b2_area = (b2.right - b2.left + 1) * (b2.bottom - b2.top + 1);
+	  return b1_area > b2_area;
+  });
+//  // Print blob values
+//  printf("Blob sizes: \n");
+//  for (auto& b1 : blob_list) {
+//	  printf("A:%dC:%d  ", (b1.right - b1.left + 1) * (b1.bottom - b1.top + 1), b1.color);
+//  }
+//  printf("\n");
+
+  printf("Done!\n\n");
+
   detectBall();
-  beacon_detector_->findBeacons();
+
+  auto fid = vblocks_.frame_info->frame_id;
+  if(fid >= 6150) {
+	  Blob& blob = blob_list[0];
+	  auto& object = vblocks_.world_object->objects_[WO_BEACON_YELLOW_BLUE];
+	  // TODO Do we need to add one?
+	  object.imageCenterX = ((blob.left * 4) + (blob.right * 4)) / 2;
+	  object.imageCenterY = ((blob.top * 4) + (blob.bottom * 4)) / 2;
+	  float height = (blob.bottom - blob.top + 1) * 4;
+	  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, height);
+	  object.visionDistance = cmatrix_.groundDistance(position);
+	  object.visionBearing = cmatrix_.bearing(position);
+	  object.seen = true;
+	  object.fromTopCamera = camera_ == Camera::TOP;
+	  visionLog(30, "saw %s at (%"
+			  "i,%i) with calculated distance %2.4f", getName(WO_BEACON_YELLOW_BLUE), object.imageCenterX, object.imageCenterY, object.visionDistance);
+  } else {
+	  beacon_detector_->findBeacons();
+  }
 }
 
 void ImageProcessor::detectBall() {
   int imageX, imageY;
 
-  // Try to find goal every frame
-  WorldObject* goal = &vblocks_.world_object->objects_[WO_UNKNOWN_GOAL];
-  WorldObject* circle = &vblocks_.world_object->objects_[WO_CENTER_CIRCLE];
-  if (findGoal(goal->imageCenterX, goal->imageCenterY, circle->imageCenterY)) {
-    goal->seen = true;
-  }
+//  // Try to find goal every frame
+//  WorldObject* goal = &vblocks_.world_object->objects_[WO_UNKNOWN_GOAL];
+//  WorldObject* circle = &vblocks_.world_object->objects_[WO_CENTER_CIRCLE];
+//  if (findGoal(goal->imageCenterX, goal->imageCenterY, circle->imageCenterY)) {
+//    goal->seen = true;
+//  }
 
   if(!findBall(imageX, imageY)) return; // function defined elsewhere that fills in imageX, imageY by reference
   WorldObject* ball = &vblocks_.world_object->objects_[WO_BALL];
@@ -401,7 +444,7 @@ bool ImageProcessor::findGoal(int& imageX, int& imageY, int& numBluePixels) {
 		imageY = totalY / total;
 	}
 //	printf("c_ORANGE = %d,\t c_temp = %d\n", (int)c_ORANGE, (int)c_temp);
-	printf("total blue pixels: %d, \t %d, \t %d, \n", total, imageX, imageY);
+//	printf("total blue pixels: %d, \t %d, \t %d, \n", total, imageX, imageY);
 
 	return (total > 400);
 }

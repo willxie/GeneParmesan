@@ -12,6 +12,7 @@
 #include <common/RobotCalibration.h>
 #include <vision/structures/BallCandidate.h>
 #include <math/Pose3D.h>
+#include <unordered_map>
 
 class BeaconDetector;
 
@@ -38,7 +39,7 @@ class ImageProcessor {
     void computeRunLength(std::vector<std::vector<RunLength> >& rows);
     RunLength* findRunLengthGrandParent(RunLength* topRunLength);
     void unionFind(std::vector<std::vector<RunLength> >& rows);
-    void computeBlobs(std::vector<std::vector<RunLength> >& rows, std::map<RunLength*, Blob>& blobs);
+    void computeBlobs(std::vector<std::vector<RunLength> >& rows, std::unordered_map<RunLength*, Blob>& blobs);
     void enableCalibration(bool value);
     void updateTransform();
     std::vector<BallCandidate*> getBallCandidates();
