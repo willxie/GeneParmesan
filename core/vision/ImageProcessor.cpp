@@ -13,6 +13,7 @@ struct ImageProcessor::RunLength {
 struct ImageProcessor::Blob {
 	/* Bounding box coordinates */
 	unsigned char color;
+	int area;
 	int top;
 	int bottom;
 	int left;
@@ -259,6 +260,7 @@ void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, st
 			if (runLength.parent == &runLength) {
 				// Create a new blob and add it to the rest
 				Blob b;
+				b.area = runLength.x_right - runLength.x_left + 1;
 				b.top = b.bottom = row;
 				b.left = runLength.x_left;
 				b.right = runLength.x_right;
@@ -279,6 +281,7 @@ void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, st
 
 				// Retrieve the blob associated with this parent
 				Blob& b = blobs[parent];
+				b.area += runLength.x_right - runLength.x_left + 1;
 				b.color = runLength.color;
 				b.left = min(runLength.x_left, b.left);
 				b.right = max(runLength.x_right, b.right);
@@ -290,6 +293,9 @@ void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, st
 	}
 }
 
+void ImageProcessor::findBeacon() {
+
+}
 
 void ImageProcessor::processFrame(){
   if(vblocks_.robot_state->WO_SELF == WO_TEAM_COACH && camera_ == Camera::BOTTOM) return;
