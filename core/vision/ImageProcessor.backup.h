@@ -41,10 +41,7 @@ class ImageProcessor {
     RunLength* findRunLengthGrandParent(RunLength* topRunLength);
     void unionFind(std::vector<std::vector<RunLength> >& rows);
     void computeBlobs(std::vector<std::vector<RunLength> >& rows, std::unordered_map<RunLength*, Blob>& blobs);
-    bool findBeacon(std::vector<Blob>& blobs, Beacon& b);
-    double findAspectRatio(Blob& blob);
-    bool findGoal(std::vector<Blob>& blob_list, Beacon& beacon);
-    bool findBall(std::vector<Blob>& blob_list, Beacon& beacon);
+    Beacon findBeacon(std::vector<Blob>& blobs) {
     void enableCalibration(bool value);
     void updateTransform();
     std::vector<BallCandidate*> getBallCandidates();
