@@ -325,8 +325,9 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, Beacon& b) {
 
 	for (auto& yellow_blob : blobs) {
 		// Not a yellow blob?
-		if (yellow_blob.color != c_YELLOW)
+		if (yellow_blob.color != c_YELLOW) {
 			continue;
+		}
 
 		printf("Yellow blob @ (x=%d, y=%d)\n",
 				((yellow_blob.left * 4) + (yellow_blob.right * 4)) / 2,
@@ -334,8 +335,9 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, Beacon& b) {
 
 		for (auto& blue_blob : blobs) {
 			// Not a blue blob?
-			if (blue_blob.color != c_BLUE)
+			if (blue_blob.color != c_BLUE) {
 				continue;
+			}
 
 			printf("Blue blob @ (x=%d, y=%d)\n",
 					((blue_blob.left * 4) + (blue_blob.right * 4)) / 2,
@@ -351,16 +353,23 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, Beacon& b) {
 
 			// Is the yellow blob not right on top of the blue blob?
 //			int vertical_difference = std::abs(yellow_blob.bottom - blue_blob.top);
-			int vertical_difference = yellow_blob.bottom+1 >= blue_blob.top;
-			printf("Vertical Difference: %d\n", vertical_difference);
-			if (yellow_blob.bottom+3 >= blue_blob.top)
+//			int vertical_difference = yellow_blob.bottom+1 >= blue_blob.top;
+//			printf("Vertical Difference: %d\n", vertical_difference);
+
+			if (!(yellow_blob.bottom + 2 >= blue_blob.top && blue_blob.bottom > yellow_blob.bottom + 2)) {
 				continue;
+			}
+
+			printf("yellow (l:%d, r:%d, t:%d, b:%d)\n", yellow_blob.left*4, yellow_blob.right*4, yellow_blob.top*2, yellow_blob.bottom*2);
+			printf("blue (l:%d, r:%d, t:%d, b:%d)\n", blue_blob.left*4, blue_blob.right*4, blue_blob.top*2, blue_blob.bottom*2);
+
 
 			// The white blob is right below the blue blob. Return the found
 			// beacon object!
 			b.type = WO_BEACON_YELLOW_BLUE;
 			b.top = yellow_blob.top;
-			b.bottom = (blue_blob.bottom-yellow_blob.top) + blue_blob.bottom;
+			// TODO sometime bottom is > top
+			b.bottom = (blue_blob.bottom - yellow_blob.top) + blue_blob.bottom;
 
 			// Arbitrarily set the left and right to the yellow blob
 			b.left = yellow_blob.left;
@@ -489,7 +498,7 @@ void ImageProcessor::processFrame(){
   bool beacon_found = findBeacon(blob_list, beacon);
   printf("Beacon found? %d\n", beacon_found);
   if (beacon_found) {
-	  printf("Beacon (Left=%d, Right=%d, Top=%d, Bottom=%d)\n", beacon.left, beacon.right, beacon.top, beacon.bottom);
+	  printf("Beacon (Left=%d, Right=%d, Top=%d, Bottom=%d)\n", beacon.left*4, beacon.right*4, beacon.top*2, beacon.bottom*2);
   }
 
   detectBall();
