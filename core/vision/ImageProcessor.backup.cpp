@@ -312,7 +312,7 @@ void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, st
 	}
 }
 
-bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, Beacon& b) {
+ImageProcessor::Beacon ImageProcessor::findBeacon(std::vector<Blob>& blobs) {
 	/* Input: All blobs
 	 * Output: Either null (if the beacon is not found) or a beacon object
 	 *
@@ -350,6 +350,7 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, Beacon& b) {
 
 				// The white blob is right below the blue blob. Return the found
 				// beacon object!
+				Beacon b;
 				b.type = WO_BEACON_YELLOW_BLUE;
 				b.top = yellow_blob.top;
 				b.bottom = white_blob.bottom;
@@ -358,12 +359,10 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, Beacon& b) {
 				b.left = yellow_blob.left;
 				b.right = yellow_blob.right;
 
-				return true;
+				return b;
 			}
 		}
 	}
-
-	return false;
 }
 
 void ImageProcessor::processFrame(){
@@ -418,8 +417,7 @@ void ImageProcessor::processFrame(){
 
   printf("Done!\n\n");
 
-  Beacon b;
-  bool beacon_found = findBeacon(blob_list, b);
+  Beacon b = findBeacon(blob_list);
 
   detectBall();
 
@@ -463,7 +461,7 @@ void ImageProcessor::processFrame(){
 	  object.seen = true;
 	  object.fromTopCamera = camera_ == Camera::TOP;
 	  visionLog(30, "saw %s at (%"
-			  "i,%i) with calculated distance %2.4f", getName(WO_BEACON_YELLOW_BLUE), object.imageCenterX, object.imageCenterY, object.visionDistance);
+			  "i,%i) with calculated distance %2.4f", getName(beacons[beacon_count]), object.imageCenterX, object.imageCenterY, object.visionDistance);
   } else {
 	  beacon_detector_->findBeacons();
   }
