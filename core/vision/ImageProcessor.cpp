@@ -328,38 +328,57 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, Beacon& b) {
 		if (yellow_blob.color != c_YELLOW)
 			continue;
 
+		printf("Yellow blob @ (x=%d, y=%d)\n",
+				((yellow_blob.left * 4) + (yellow_blob.right * 4)) / 2,
+				((yellow_blob.top * 2) + (yellow_blob.bottom * 2)) / 2);
+
 		for (auto& blue_blob : blobs) {
 			// Not a blue blob?
 			if (blue_blob.color != c_BLUE)
 				continue;
 
-			// Is the yellow blob not right on top of the blue blob?
-			if (std::abs(yellow_blob.bottom - blue_blob.top) > 10)
+			printf("Blue blob @ (x=%d, y=%d)\n",
+					((blue_blob.left * 4) + (blue_blob.right * 4)) / 2,
+					((blue_blob.top * 2) + (blue_blob.bottom * 2)) / 2);
+
+			// Blobs not aligned horizontally?
+			int horizontal_diff = std::abs((yellow_blob.left+yellow_blob.right) / 2 - (blue_blob.left+blue_blob.right) / 2);
+//			int horizontal_diff = (yellow_blob.left+yellow_blob.right)/2 - (blue_blob.left+blue_blob.right) / 2);
+
+			printf("Horizontal Difference: %d\n", horizontal_diff);
+			if (horizontal_diff > 3)
 				continue;
 
-			// We've found the Yellow-Blue-White beacon. Find a white blob right
-			// below the blue blob and return
-			for (auto& white_blob : blobs) {
-				// Not a white blob?
-				if (white_blob.color != c_WHITE)
-					continue;
+			// Is the yellow blob not right on top of the blue blob?
+//			int vertical_difference = std::abs(yellow_blob.bottom - blue_blob.top);
+			int vertical_difference = yellow_blob.bottom+1 >= blue_blob.top;
+			printf("Vertical Difference: %d\n", vertical_difference);
+			if (yellow_blob.bottom+3 >= blue_blob.top)
+				continue;
 
-				// Is the white blob somewhere else than right below the blue blob?
-				if (std::abs(blue_blob.bottom - white_blob.top) > 10)
-					continue;
+			// The white blob is right below the blue blob. Return the found
+			// beacon object!
+			b.type = WO_BEACON_YELLOW_BLUE;
+			b.top = yellow_blob.top;
+			b.bottom = (blue_blob.bottom-yellow_blob.top) + blue_blob.bottom;
 
-				// The white blob is right below the blue blob. Return the found
-				// beacon object!
-				b.type = WO_BEACON_YELLOW_BLUE;
-				b.top = yellow_blob.top;
-				b.bottom = white_blob.bottom;
+			// Arbitrarily set the left and right to the yellow blob
+			b.left = yellow_blob.left;
+			b.right = yellow_blob.right;
 
-				// Arbitrarily set the left and right to the yellow blob
-				b.left = yellow_blob.left;
-				b.right = yellow_blob.right;
+			return true;
 
-				return true;
-			}
+//			// We've found the Yellow-Blue-White beacon. Find a white blob right
+//			// below the blue blob and return
+//			for (auto& white_blob : blobs) {
+//				// Not a white blob?
+//				if (white_blob.color != c_WHITE)
+//					continue;
+//
+//				// Is the white blob somewhere else than right below the blue blob?
+//				if (std::abs(blue_blob.bottom - white_blob.top) > 10)
+//					continue;
+//			}
 		}
 	}
 
@@ -449,9 +468,7 @@ void ImageProcessor::processFrame(){
   std::vector<Blob> blob_list (blobs.size());
   for (auto& pair : blobs) {
 	  Blob& blob = pair.second;
-	  if (blob.color == c_YELLOW) {
-		  blob_list.push_back(blob);
-	  }
+	  blob_list.push_back(blob);
   }
   // Note that this sorts the list in descending order
   std::sort(blob_list.begin(), blob_list.end(), [] (const Blob& b1, const Blob& b2) {
@@ -468,8 +485,12 @@ void ImageProcessor::processFrame(){
 
   printf("Done!\n\n");
 
-  Beacon b;
-  bool beacon_found = findBeacon(blob_list, b);
+  Beacon beacon;
+  bool beacon_found = findBeacon(blob_list, beacon);
+  printf("Beacon found? %d\n", beacon_found);
+  if (beacon_found) {
+	  printf("Beacon (Left=%d, Right=%d, Top=%d, Bottom=%d)\n", beacon.left, beacon.right, beacon.top, beacon.bottom);
+  }
 
   detectBall();
 
@@ -504,16 +525,19 @@ void ImageProcessor::processFrame(){
 //			  break;
 //		  }
 //	  }
-	  auto& object = vblocks_.world_object->objects_[WO_BEACON_YELLOW_BLUE];
-	  object.imageCenterX = ((b.left * 4) + (b.right * 4)) / 2;
-	  object.imageCenterY = ((b.top * 4) + (b.bottom * 4)) / 2;
-	  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, 300);
-	  object.visionDistance = cmatrix_.groundDistance(position);
-	  object.visionBearing = cmatrix_.bearing(position);
-	  object.seen = true;
-	  object.fromTopCamera = camera_ == Camera::TOP;
-	  visionLog(30, "saw %s at (%"
-			  "i,%i) with calculated distance %2.4f", getName(WO_BEACON_YELLOW_BLUE), object.imageCenterX, object.imageCenterY, object.visionDistance);
+	  if (beacon_found) {
+		  auto& object = vblocks_.world_object->objects_[WO_BEACON_YELLOW_BLUE];
+		  object.imageCenterX = ((beacon.left * 4) + (beacon.right * 4)) / 2;
+		  object.imageCenterY = ((beacon.top * 2) + (beacon.bottom * 2)) / 2;
+		  printf("(ImageCenterX=%d, ImageCenterY=%d)\n", object.imageCenterX, object.imageCenterY);
+		  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, 300);
+		  object.visionDistance = cmatrix_.groundDistance(position);
+		  object.visionBearing = cmatrix_.bearing(position);
+		  object.seen = true;
+		  object.fromTopCamera = camera_ == Camera::TOP;
+		  visionLog(30, "saw %s at (%"
+				  "i,%i) with calculated distance %2.4f", getName(WO_BEACON_YELLOW_BLUE), object.imageCenterX, object.imageCenterY, object.visionDistance);
+	  }
   } else {
 	  beacon_detector_->findBeacons();
   }
