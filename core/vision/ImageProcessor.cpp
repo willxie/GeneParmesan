@@ -297,6 +297,55 @@ void ImageProcessor::findBeacon() {
 
 }
 
+// width / height of bounding box in original image frame. Ratio = 1 means it's a square.
+double ImageProcessor::findAspectRatio(Blob& blob) {
+	double ratio = (blob.right - blob.left + 1) * 4 / ((blob.bottom - blob.top + 1) * 2);
+}
+
+// Assume the blob_list is sorted in size
+bool ImageProcessor::findGoal(std::vector<Blob>& blob_list, Beacon& beacon) {
+	  for (Blob& blob : blob_list) {
+		  // Just find the biggest for now
+		  if (blob.color != c_BLUE) {
+			  continue;
+		  }
+		  // The goal is 34 cm by 20 cm
+		  // TODO refind threshold
+		  if (findAspectRatio(blob) > (((double)34 / 20) * 0.8)) {
+			  continue;
+		  }
+		  beacon.type = WO_OPP_GOAL;
+		  beacon.left = blob.left;
+		  beacon.right = blob.right;
+		  beacon.top = blob.top;
+		  beacon.bottom = blob.bottom;
+		  return true;
+	  }
+	  return false;
+}
+
+// Assume the blob_list is sorted in size
+bool ImageProcessor::findBall(std::vector<Blob>& blob_list, Beacon& beacon) {
+	  for (Blob& blob : blob_list) {
+		  // Just find the biggest for now
+		  if (blob.color != c_ORANGE) {
+			  continue;
+		  }
+		  // Bounding box of ball should be close to square
+		  double ratio = findAspectRatio(blob);
+		  if (!(ratio > 1.2 || ratio < 0.8)) {
+			  continue;
+		  }
+		  beacon.type = WO_BALL;
+		  beacon.left = blob.left;
+		  beacon.right = blob.right;
+		  beacon.top = blob.top;
+		  beacon.bottom = blob.bottom;
+		  return true;
+	  }
+	  return false;
+}
+
 void ImageProcessor::processFrame(){
   if(vblocks_.robot_state->WO_SELF == WO_TEAM_COACH && camera_ == Camera::BOTTOM) return;
   visionLog(30, "Process Frame camera %i", camera_);
@@ -326,6 +375,7 @@ void ImageProcessor::processFrame(){
   computeBlobs(rows, blobs);
 
   // Sort blobs base on bounding box area
+  // TODO filter out small blobs
   printf("Sorting blobs\n");
   std::vector<Blob> blob_list (blobs.size());
   for (auto& pair : blobs) {
@@ -367,7 +417,7 @@ void ImageProcessor::processFrame(){
 		  auto& object = vblocks_.world_object->objects_[beacons[beacon_count]];
 		  // TODO Do we need to add one?
 		  object.imageCenterX = ((blob.left * 4) + (blob.right * 4)) / 2;
-		  object.imageCenterY = ((blob.top * 4) + (blob.bottom * 4)) / 2;
+		  object.imageCenterY = ((blob.top * 2) + (blob.bottom * 2)) / 2;
 		  float height = (blob.bottom - blob.top + 1) * 4;
 		  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, height);
 		  object.visionDistance = cmatrix_.groundDistance(position);
