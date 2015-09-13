@@ -347,7 +347,7 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			// Are the two blobs not close enough horizontally?
 			int horizontal_diff = std::abs((top_blob.left+top_blob.right)/2 - (bottom_blob.left+bottom_blob.right)/2);
 			printf("    Horizontal Difference: %d\n", horizontal_diff);
-			if (horizontal_diff > 3)
+			if (horizontal_diff > 5)
 				continue;
 
 			printf("    Bottom blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d)\n",
@@ -356,7 +356,7 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 					bottom_blob.top * 2, bottom_blob.bottom * 2, bottom_blob.left * 4, bottom_blob.right * 4);
 
 			// Are the two blobs not close enough vertically?
-			if (std::abs(top_blob.bottom - bottom_blob.top) > 3) {
+			if (std::abs(top_blob.bottom - bottom_blob.top) > 5) {
 				printf("    FAILED THE VERTICAL TEST!\n");
 				printf("        Top Blob: (Bottom=%d)\n", top_blob.bottom);
 				printf("        Bottom Blob: (Top=%d, Bottom=%d)\n", bottom_blob.top, bottom_blob.bottom);
@@ -370,7 +370,7 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			beacon.type = beacon_type;
 			beacon.top = top_blob.top;
 
-			// TODO sometime bottom is > top
+			// TODO sometime bottom is > top (?)
 			beacon.bottom = bottom_blob.bottom;
 
 			// Be inclusive and take whichever blob extends furthest left/right
@@ -484,30 +484,49 @@ void ImageProcessor::processFrame(){
 
   printf("Done!\n\n");
 
-  // Beacon type
-  std::vector<WorldObjectType> beacon_types = {
-		  WO_BEACON_BLUE_YELLOW,
-		  WO_BEACON_YELLOW_BLUE,
-		  WO_BEACON_BLUE_PINK,
-		  WO_BEACON_PINK_BLUE,
-		  WO_BEACON_PINK_YELLOW,
-		  WO_BEACON_YELLOW_PINK,
+  // Beacon types
+  static map<WorldObjectType,vector<int>> beacon_configs = {
+    { WO_BEACON_YELLOW_BLUE, { c_YELLOW, c_BLUE   } },
+	{ WO_BEACON_BLUE_YELLOW, { c_BLUE,   c_YELLOW } },
+    { WO_BEACON_YELLOW_PINK, { c_YELLOW, c_PINK   } },
+    { WO_BEACON_PINK_YELLOW, { c_PINK,   c_YELLOW } },
+    { WO_BEACON_BLUE_PINK,   { c_BLUE,   c_PINK   } },
+    { WO_BEACON_PINK_BLUE,   { c_PINK,   c_BLUE   } }
   };
-  Beacon beacon;
-  bool beacon_found = findBeacon(blob_list, WO_BEACON_YELLOW_BLUE, c_YELLOW, c_BLUE, beacon);
-  printf("Beacon found? %d\n", beacon_found);
-  if (beacon_found) {
-	  printf("Beacon (Left=%d, Right=%d, Top=%d, Bottom=%d)\n", beacon.left*4, beacon.right*4, beacon.top*2, beacon.bottom*2);
+
+  // Beacon types
+  static map<WorldObjectType, int> world_heights = {
+    { WO_BEACON_YELLOW_BLUE, 300 },
+	{ WO_BEACON_BLUE_YELLOW, 300 },
+    { WO_BEACON_YELLOW_PINK, 200 },
+    { WO_BEACON_PINK_YELLOW, 200 },
+    { WO_BEACON_BLUE_PINK,   200 },
+    { WO_BEACON_PINK_BLUE,   200 }
+  };
+
+  // Seach for all the beacons
+  std::vector<Beacon> beacons;
+  for (auto& beacon_config : beacon_configs) {
+	  auto type = beacon_config.first;
+	  auto colors = beacon_config.second;
+
+	  Beacon beacon;
+	  bool beacon_found = findBeacon(blob_list, type, colors[0], colors[1], beacon);
+	  printf("Beacon found (top_color=%d, bottom_color=%d)? %d\n", colors[0], colors[1], beacon_found);
+	  if (beacon_found) {
+		  printf("Beacon (Left=%d, Right=%d, Top=%d, Bottom=%d)\n", beacon.left*4, beacon.right*4, beacon.top*2, beacon.bottom*2);
+		  beacons.push_back(beacon);
+	  }
   }
 
   detectBall();
 
-  if (beacon_found) {
-	  auto& object = vblocks_.world_object->objects_[WO_BEACON_YELLOW_BLUE];
+  for (auto& beacon : beacons) {
+	  auto& object = vblocks_.world_object->objects_[beacon.type];
 	  object.imageCenterX = ((beacon.left * 4) + (beacon.right * 4)) / 2;
 	  object.imageCenterY = ((beacon.top * 2) + (beacon.bottom * 2)) / 2;
 	  printf("(ImageCenterX=%d, ImageCenterY=%d)\n", object.imageCenterX, object.imageCenterY);
-	  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, 300);
+	  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, world_heights[beacon.type]);
 	  object.visionDistance = cmatrix_.groundDistance(position);
 
 	  printf("Vision Distance: %f\n", object.visionDistance);
@@ -517,8 +536,6 @@ void ImageProcessor::processFrame(){
 	  object.fromTopCamera = camera_ == Camera::TOP;
 	  visionLog(30, "saw %s at (%"
 			  "i,%i) with calculated distance %2.4f", getName(WO_BEACON_YELLOW_BLUE), object.imageCenterX, object.imageCenterY, object.visionDistance);
-//  } else {
-//	  beacon_detector_->findBeacons();
   }
 }
 
