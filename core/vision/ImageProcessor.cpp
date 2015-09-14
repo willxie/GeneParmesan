@@ -7,6 +7,7 @@ struct ImageProcessor::RunLength {
 	unsigned char color = -1;
 	int x_left;
 	int x_right;
+	int y;
 	RunLength* parent = this;
 };
 
@@ -19,6 +20,9 @@ struct ImageProcessor::Blob {
 	int bottom;
 	int left;
 	int right;
+	int runs; // TODO for testing please remove after
+	int parent_x;
+	int parent_y;
 };
 
 struct ImageProcessor::Beacon {
@@ -162,6 +166,7 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 				curRunLength.x_left = xx;
 				curRunLength.x_right = xx;
 				curRunLength.color = c;
+				curRunLength.y = yy;
 //				printf("runlength: %p\n", &(rows[yy].back()));
 //				printf("runlength->parent: %p\n", rows[yy].back().parent);
 //				printf("row size: %d\n", rows[yy].size());
@@ -171,7 +176,6 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 				curRunLength.x_right = xx;
 			}
 			c_prev = c;
-
 		}
 	}
 
@@ -205,6 +209,7 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 		}
 	}
 
+
 //	for (int i = 0; i < rows.size(); ++i) {
 //		for (int j = 0; j < rows[i].size(); ++j) {
 //			RunLength& rp = rows[i][j];
@@ -219,16 +224,16 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 }
 
 // Given a candidate RunLength, find the uppermost parent (root of the tree)
-ImageProcessor::RunLength* ImageProcessor::findRunLengthGrandParent(RunLength* topRunLength) {
+ImageProcessor::RunLength* ImageProcessor::findRunLengthGrandParent(RunLength* runLength) {
 //	printf("find 1\n");
-	if (topRunLength->parent == topRunLength) {
+	if (runLength->parent == runLength) {
 //		printf("find 2\n");
 
-		return topRunLength;
+		return runLength->parent;
 	}
 //	printf("find 3\n");
 
-	return findRunLengthGrandParent(topRunLength->parent);
+	return findRunLengthGrandParent(runLength->parent);
 }
 
 void ImageProcessor::unionFind(std::vector<std::vector<RunLength> >& rows) {
@@ -239,32 +244,39 @@ void ImageProcessor::unionFind(std::vector<std::vector<RunLength> >& rows) {
 		// Center on the bottom row and try to find the parent for each RunLength
 		for (RunLength& curRunLength : rows[y]) {
 			while (true) {
-//				printf("rows[%d - 1].size() = %d\n", y, rows[y - 1].size());
-//				printf("x_top = %d\n", x_top);
+				//				printf("rows[%d - 1].size() = %d\n", y, rows[y - 1].size());
+				//				printf("x_top = %d\n", x_top);
 				RunLength& topRunLength = rows[y - 1][x_top];
 				// Check if the topRunLength is connected to curRunLength
-//				if ((curRunLength.x_left <= topRunLength.x_left && topRunLength.x_left <= curRunLength.x_right) ||
-//						(topRunLength.x_left <= curRunLength.x_left && curRunLength.x_left <= topRunLength.x_right)) {
-					// Check for color
-					if (curRunLength.color == topRunLength.color) {
-						// Is this the first adjacent run length with the same color
-						// encountered
-						if (curRunLength.parent == &curRunLength) {
-							curRunLength.parent = findRunLengthGrandParent(&topRunLength);
-						} else {
-							// If the curRunLength.parent is already set, it means
-							// that this is the second overlapped region
-							findRunLengthGrandParent(&topRunLength)->parent = curRunLength.parent;
-						}
-					}
+				//				if ((curRunLength.x_left <= topRunLength.x_left && topRunLength.x_left <= curRunLength.x_right) ||
+				//						(topRunLength.x_left <= curRunLength.x_left && curRunLength.x_left <= topRunLength.x_right)) {
+				// Check for color
 
-					// If next top run is guaranteed to be disconnected, move on
-					if (topRunLength.x_right >= curRunLength.x_right) {
-						break;
-					}
 
+				if (curRunLength.color == topRunLength.color) {
+					// Is this the first adjacent run length with the same color
+					// encountered
+					if (curRunLength.parent == &curRunLength) {
+						curRunLength.parent = findRunLengthGrandParent(&topRunLength);
+					} else {
+						// If the curRunLength.parent is already set, it means
+						// that this is the second overlapped region
+						findRunLengthGrandParent(&topRunLength)->parent = findRunLengthGrandParent(&curRunLength);
+					}
+				}
+
+				// Special case when both are right sides align, must advance both
+				if (topRunLength.x_right == curRunLength.x_right) {
 					x_top++;
-//				}
+					break;
+				}
+				// If next top run is guaranteed to be disconnected from the bottom, advance bottom
+				if (topRunLength.x_right > curRunLength.x_right) {
+					break;
+				}
+
+				x_top++;
+				//				}
 			}
 		}
 	}
@@ -277,16 +289,20 @@ void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, st
 	for (auto& runLengthRow : rows) {
 		for (auto& runLength : runLengthRow) {
 			// Is this run length its own parent?
-			if (runLength.parent == &runLength) {
-				// Create a new blob and add it to the rest
-				Blob b;
-				b.area = runLength.x_right - runLength.x_left + 1;
-				b.top = b.bottom = row;
-				b.left = runLength.x_left;
-				b.right = runLength.x_right;
-
-				blobs[&runLength] = b;
-			} else {
+//			if (runLength.parent == &runLength) {
+//				// Create a new blob and add it to the rest
+//				Blob blob;
+//				blob.area = runLength.x_right - runLength.x_left + 1;
+//				blob.top = blob.bottom = row;
+//				blob.left = runLength.x_left;
+//				blob.right = runLength.x_right;
+//				blob.runs = 0; // TODO remove
+//				blob.parent_x = runLength.x_left;
+//				blob.parent_y = row;
+//
+//
+//				blobs[&runLength] = blob;
+//			} else {
 
 				// This run length has a parent. Find it and update the
 				// associated blob
@@ -300,66 +316,99 @@ void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, st
 //				}
 
 				// Retrieve the blob associated with this parent
-				Blob& b = blobs[parent];
-				b.area += runLength.x_right - runLength.x_left + 1;
-				b.color = runLength.color;
-				b.left = min(runLength.x_left, b.left);
-				b.right = max(runLength.x_right, b.right);
-				b.bottom = max(row, b.bottom);
-				b.top = min(row, b.top);
-			}
+				std::unordered_map<RunLength*, Blob>::const_iterator got = blobs.find(parent);
+				if (got == blobs.end()) {
+					// Creating the blob
+
+					Blob blob;
+					blob.area = runLength.x_right - runLength.x_left + 1;
+					blob.top = blob.bottom = row;
+					blob.left = runLength.x_left;
+					blob.right = runLength.x_right;
+					blob.runs = 0; // TODO remove
+					blob.parent_x = runLength.x_left;
+					blob.parent_y = row;
+					blobs[parent] = blob;
+
+//					printf("ERROR: PARENT NOT FOUND\n");
+//					printf("current run  : (%d, %d)\n", runLength.x_left, runLength.y);
+//					printf("target parent: (%d, %d)\n", parent->x_left, parent->y);
+//					while(1);
+				} else {
+					// Updating the blob
+					Blob& blob = blobs[parent];
+					blob.area += runLength.x_right - runLength.x_left + 1;
+					blob.color = runLength.color;
+					blob.left = min(runLength.x_left, blob.left);
+					blob.right = max(runLength.x_right, blob.right);
+					blob.bottom = max(row, blob.bottom);
+					blob.top = min(row, blob.top);
+
+					blob.runs++; // TODO remove
+				}
+
 		}
 		row++;
 	}
 }
 
-bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon_type, unsigned char top_color, unsigned char bottom_color, Beacon& beacon) {
-	/* Input:
-	 * 
-	 *   blobs - A list of blobs detected by union find
-	 *   top_color - The top color of the beacon
-	 *   bottom_color - The bottom color of the beacon
-	 *   beacon - An empty beacon object to fill in if the beacon is found
-	 *   
-	 * Output:
-	 * 
-	 *   true - If the beacon is found. Additionally `beacon` will be filled in
-	 *   false - If the beacon is not found
-	 */
-
+/**
+ * Input:
+ *
+ *   blobs - A list of blobs detected by union find
+ *   top_color - The top color of the beacon
+ *   bottom_color - The bottom color of the beacon
+ *   beacon - An empty beacon object to fill in if the beacon is found
+ *
+ * Output:
+ *
+ *   true - If the beacon is found. Additionally `beacon` will be filled in
+ *   false - If the beacon is not found
+ */
+bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon_type,
+			unsigned char top_color, unsigned char bottom_color, Beacon& beacon) {
 	for (auto& top_blob : blobs) {
 		// Color not `top_color`?
 		if (top_blob.color != top_color) {
 			continue;
 		}
-
-		printf("Top blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d)\n",
+		printf("====\n");
+		printf("====Top blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d)\n",
 				((top_blob.left * 4) + (top_blob.right * 4)) / 2,
 				((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
-				top_blob.top * 2, top_blob.bottom * 2, top_blob.left * 4, top_blob.right * 4);
+				top_blob.top * 2, top_blob.bottom * 2, top_blob.left * 4, top_blob.right * 4,
+				top_blob.area, top_blob.runs);
 
 		for (auto& bottom_blob : blobs) {
 			// Color not `bottom_color`?
 			if (bottom_blob.color != bottom_color) {
 				continue;
 			}
-
+			printf(">>>>Bottom blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d) (runs=%d)\n",
+							((bottom_blob.left * 4) + (bottom_blob.right * 4)) / 2,
+							((bottom_blob.top * 2) + (bottom_blob.bottom * 2)) / 2,
+							bottom_blob.top * 2, bottom_blob.bottom * 2, bottom_blob.left * 4, bottom_blob.right * 4,
+							bottom_blob.area, bottom_blob.runs);
+			printf(">>>>(parent index:x=%d, y=%d)\n", bottom_blob.parent_x*4, bottom_blob.parent_y*2);
 			// Are the two blobs not close enough horizontally?
+			// Compare bounding box mid-points
 			int horizontal_diff = std::abs((top_blob.left+top_blob.right)/2 - (bottom_blob.left+bottom_blob.right)/2);
 			printf("    Horizontal Difference: %d\n", horizontal_diff);
-			if (horizontal_diff > 5)
+			if (horizontal_diff > 5) {
 				continue;
-
-			printf("    Bottom blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d)\n",
-					((bottom_blob.left * 4) + (bottom_blob.right * 4)) / 2,
-					((bottom_blob.top * 2) + (bottom_blob.bottom * 2)) / 2,
-					bottom_blob.top * 2, bottom_blob.bottom * 2, bottom_blob.left * 4, bottom_blob.right * 4);
+			}
 
 			// Are the two blobs not close enough vertically?
-			if (std::abs(top_blob.bottom - bottom_blob.top) > 5) {
-				printf("    FAILED THE VERTICAL TEST!\n");
-				printf("        Top Blob: (Bottom=%d)\n", top_blob.bottom);
-				printf("        Bottom Blob: (Top=%d, Bottom=%d)\n", bottom_blob.top, bottom_blob.bottom);
+//			if (std::abs(top_blob.bottom - bottom_blob.top) > 5) {
+//				printf("    FAILED THE VERTICAL TEST!\n");
+//				printf("        Top Blob: (Bottom=%d)\n", top_blob.bottom);
+//				printf("        Bottom Blob: (Top=%d, Bottom=%d)\n", bottom_blob.top, bottom_blob.bottom);
+//				continue;
+//			}
+
+			// TODO change it back to abs if you want
+			const int top_bottom_offset = 2;
+			if (!(top_blob.bottom + top_bottom_offset >= bottom_blob.top && bottom_blob.bottom > top_blob.bottom + top_bottom_offset)) {
 				continue;
 			}
 
@@ -368,12 +417,12 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			// The top blob is right below the bottom blob and they're the same
 			// color. Fill in found beacon object!
 			beacon.type = beacon_type;
-			beacon.top = top_blob.top;
+			beacon.top  = top_blob.top;
 
 			// TODO sometime bottom is > top (?)
 			beacon.bottom = bottom_blob.bottom;
 
-			// Be inclusive and take whichever blob extends furthest left/right
+			// Be inclusive and take whichever blob extends furtherest left/right
 			beacon.left = std::min(top_blob.left, bottom_blob.left);
 			beacon.right = std::max(top_blob.right, bottom_blob.right);
 
@@ -449,9 +498,15 @@ void ImageProcessor::processFrame(){
   // Compute Run Lengths
   // Note that the dimension of rows is 120 x 80
   printf("Building RunLengths...\n");
-  std::vector<std::vector<RunLength> > rows (120, std::vector<RunLength>());
+  std::vector<std::vector<RunLength> > rows (120);
   computeRunLength(rows);
-
+//	for (auto& row : rows) {
+//		for (auto& rl : row) {
+//			printf("runlength: %p\n", &rl);
+//			printf("runlength->parent: %p\n", rl.parent);
+//			printf("----------\n");
+//		}
+//	}
   // Link RunLengths into regions with the same parent
   printf("Union find...\n");
   unionFind(rows);
@@ -462,19 +517,23 @@ void ImageProcessor::processFrame(){
   computeBlobs(rows, blobs);
 
   // Sort blobs base on bounding box area
-  // TODO filter out small blobs
   printf("Sorting blobs\n");
   std::vector<Blob> blob_list (blobs.size());
   for (auto& pair : blobs) {
 	  Blob& blob = pair.second;
-	  blob_list.push_back(blob);
+	  // Filter out small blobs (pixel area)
+//	  if (blob.area < 8) {
+		  blob_list.push_back(blob);
+//	  }
   }
   // Note that this sorts the list in descending order
   std::sort(blob_list.begin(), blob_list.end(), [] (const Blob& b1, const Blob& b2) {
+	  // Bounding box area (not pixel area)
 	  int b1_area = (b1.right - b1.left + 1) * (b1.bottom - b1.top + 1);
 	  int b2_area = (b2.right - b2.left + 1) * (b2.bottom - b2.top + 1);
 	  return b1_area > b2_area;
   });
+
 //  // Print blob values
 //  printf("Blob sizes: \n");
 //  for (auto& b1 : blob_list) {
@@ -506,9 +565,12 @@ void ImageProcessor::processFrame(){
 
   // Seach for all the beacons
   std::vector<Beacon> beacons;
-  for (auto& beacon_config : beacon_configs) {
-	  auto type = beacon_config.first;
-	  auto colors = beacon_config.second;
+//  for (auto& beacon_config : beacon_configs) {
+//  auto& beacon_config = beacon_configs[WO_BEACON_YELLOW_BLUE];
+  auto type = WO_BEACON_YELLOW_BLUE;
+  auto colors = beacon_configs[WO_BEACON_YELLOW_BLUE];
+//	  auto type = beacon_config.first;
+//	  auto colors = beacon_config.second;
 
 	  Beacon beacon;
 	  bool beacon_found = findBeacon(blob_list, type, colors[0], colors[1], beacon);
@@ -517,10 +579,11 @@ void ImageProcessor::processFrame(){
 		  printf("Beacon (Left=%d, Right=%d, Top=%d, Bottom=%d)\n", beacon.left*4, beacon.right*4, beacon.top*2, beacon.bottom*2);
 		  beacons.push_back(beacon);
 	  }
-  }
+//  }
 
   detectBall();
 
+  // Display beacons
   for (auto& beacon : beacons) {
 	  auto& object = vblocks_.world_object->objects_[beacon.type];
 	  object.imageCenterX = ((beacon.left * 4) + (beacon.right * 4)) / 2;
