@@ -198,6 +198,7 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 
 	// Link parents
 	// TODO this is a very hacky way of doing it. I don't know why it didn't work for setting parents up top
+	// TODO actually, this might be the only way to do it since vector memory must be contiguous
 	for (auto& row : rows) {
 		for (auto& rl : row) {
 			RunLength* rp = &rl;
@@ -220,7 +221,6 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 //		}
 //	}
 //
-//	while(1);
 }
 
 // Given a candidate RunLength, find the uppermost parent (root of the tree)
@@ -434,8 +434,14 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 }
 
 // width / height of bounding box in original image frame. Ratio = 1 means it's a square.
-double ImageProcessor::findAspectRatio(Blob& blob) {
+double ImageProcessor::calculateAspectRatio(Blob& blob) {
 	double ratio = (blob.right - blob.left + 1) * 4 / ((blob.bottom - blob.top + 1) * 2);
+}
+
+// Density (area of blob) / (area of bounding box)
+double ImageProcessor::calculateDensity(Blob& blob) {
+	// This is downsampled space. But the ratio should be the same
+	return blob.area / ((blob.right - blob.left + 1) * (blob.bottom - blob.top + 1));
 }
 
 // Assume the blob_list is sorted in size
@@ -447,7 +453,7 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list, Beacon& beacon) {
 		  }
 		  // The goal is 34 cm by 20 cm
 		  // TODO refind threshold
-		  if (findAspectRatio(blob) > (((double)34 / 20) * 0.8)) {
+		  if (calculateAspectRatio(blob) > (((double)34 / 20) * 0.8)) {
 			  continue;
 		  }
 		  beacon.type = WO_OPP_GOAL;
@@ -462,16 +468,28 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list, Beacon& beacon) {
 
 // Assume the blob_list is sorted in size
 bool ImageProcessor::findBall(std::vector<Blob>& blob_list, Beacon& beacon) {
+	// TODO tilt-angle-test
 	for (Blob& blob : blob_list) {
-		// Just find the biggest for now
+		// Check color
 		if (blob.color != c_ORANGE) {
 			continue;
 		}
-		// Bounding box of ball should be close to square
-		double ratio = findAspectRatio(blob);
-		if (!(ratio > 1.2 || ratio < 0.8)) {
+		// Check area to bounding box ratio, it should be close to Pi/4
+		const double tolerance = 0.1;
+		const double density_ref = 3.14159265359 / 4;
+		const double offset = density_ref * tolerance;
+		double density = calculateDensity(blob);
+		// Ball density should be within +- 10% of ideal
+		if (!(density_ref - offset < density) && (density <  density_ref + offset)) {
 			continue;
 		}
+
+		// Bounding box of ball should be close to square
+		double ratio = calculateAspectRatio(blob);
+		if (!(ratio > 1.0 + tolerance || ratio < 1 - tolerance)) {
+			continue;
+		}
+
 		beacon.type = WO_BALL;
 		beacon.left = blob.left;
 		beacon.right = blob.right;
