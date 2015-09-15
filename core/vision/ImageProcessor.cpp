@@ -50,6 +50,8 @@ ImageProcessor::ImageProcessor(VisionBlocks& vblocks, const ImageParams& iparams
   enableCalibration_ = false;
   classifier_ = new Classifier(vblocks_, vparams_, iparams_, camera_);
   beacon_detector_ = new BeaconDetector(DETECTOR_PASS_ARGS);
+
+  ball_candidate_ = new BallCandidate();
 }
 
 void ImageProcessor::init(TextLogger* tl){
@@ -372,12 +374,12 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 		if (top_blob.color != top_color) {
 			continue;
 		}
-		printf("====\n");
-		printf("====Top blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d)\n",
-				((top_blob.left * 4) + (top_blob.right * 4)) / 2,
-				((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
-				top_blob.top * 2, top_blob.bottom * 2, top_blob.left * 4, top_blob.right * 4,
-				top_blob.area, top_blob.runs);
+//		printf("====\n");
+//		printf("====Top blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d)\n",
+//				((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+//				((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+//				top_blob.top * 2, top_blob.bottom * 2, top_blob.left * 4, top_blob.right * 4,
+//				top_blob.area, top_blob.runs);
 
 		for (auto& middle_blob : blobs) {
 			// Color not `bottom_color`?
@@ -385,11 +387,9 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 				continue;
 			}
 
-			// BEGIN HEURISTICS
-
 			// Are the two blobs not close enough horizontally?
 			int horizontal_diff = std::abs((top_blob.left+top_blob.right)/2 - (middle_blob.left+middle_blob.right)/2);
-			printf("    Horizontal Difference: %d\n", horizontal_diff);
+//			printf("    Horizontal Difference: %d\n", horizontal_diff);
 			if (horizontal_diff > 5) {
 				continue;
 			}
@@ -422,9 +422,58 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			beacon.left = std::min(top_blob.left, middle_blob.left);
 			beacon.right = std::max(top_blob.right, middle_blob.right);
 
-			printf("    PASSED THE VERTICAL TEST!\n");
+//			printf("    PASSED THE VERTICAL TEST!\n");
 
 			return true;
+
+			// Find a robot white blob right below this one
+			for (auto& bottom_blob : blobs) {
+				// Color not robot white?
+				if (bottom_blob.color != c_ROBOT_WHITE) {
+					continue;
+				}
+
+				// The robot white blob is not under the bottom blob?
+				int horizontal_diff = std::abs((middle_blob.left+middle_blob.right)/2 - (bottom_blob.left+bottom_blob.right)/2);
+				int vertical_diff = std::abs(middle_blob.bottom - bottom_blob.top);
+				if (horizontal_diff > 5 || vertical_diff > 5) {
+					continue;
+				}
+
+//				// Check and see if the three blobs are the same size
+//				if (std::abs((double)top_blob.area/middle_blob.area - 1) > 0.3) {
+//					printf("        FAILED THE BLOB RATIO TEST!\n");
+//					printf("        RATIO = %d/%d = %f\n", top_blob.area, middle_blob.area, (double)top_blob.area/middle_blob.area);
+//					printf("        Top blob (x=%d, y=%d, area=%d)\n",
+//							(top_blob.left*4 + top_blob.right*4) / 2,
+//							(top_blob.top*2 + top_blob.bottom*2) / 2,
+//							top_blob.area);
+//					printf("        Middle blob (x=%d, y=%d, area=%d)\n",
+//							(middle_blob.left*4 + middle_blob.right*4) / 2,
+//							(middle_blob.top*2 + middle_blob.bottom*2) / 2,
+//							middle_blob.area);
+//					printf("        Bottom blob (x=%d, y=%d, area=%d)\n",
+//							(bottom_blob.left*4 + bottom_blob.right*4) / 2,
+//							(bottom_blob.top*2 + bottom_blob.bottom*2) / 2,
+//							bottom_blob.area);
+//					continue;
+//				}
+
+				// The top blob is right below the middle blob and they're the same
+				// color. Not only that; there's a robot white blob below the
+				// middle one. This is surely a beacon!
+				beacon.type = beacon_type;
+				beacon.top = top_blob.top;
+
+				// TODO sometime bottom is > top (?)
+				beacon.bottom = bottom_blob.bottom;
+
+				// Be inclusive and take whichever blob extends furthest left/right
+				beacon.left = std::min(top_blob.left, middle_blob.left);
+				beacon.right = std::max(top_blob.right, middle_blob.right);
+
+				return true;
+			}
 		}
 	}
 
@@ -433,39 +482,40 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 
 // width / height of bounding box in original image frame. Ratio = 1 means it's a square.
 double ImageProcessor::calculateAspectRatio(Blob& blob) {
-	double ratio = (blob.right - blob.left + 1) * 4 / ((blob.bottom - blob.top + 1) * 2);
+	return (double)(blob.right - blob.left + 1) * 4 / ((blob.bottom - blob.top + 1) * 2);
 }
 
 // Density (area of blob) / (area of bounding box)
 double ImageProcessor::calculateDensity(Blob& blob) {
 	// This is downsampled space. But the ratio should be the same
-	return blob.area / ((blob.right - blob.left + 1) * (blob.bottom - blob.top + 1));
+	return (double)blob.area / ((blob.right - blob.left + 1) * (blob.bottom - blob.top + 1));
 }
 
 // Assume the blob_list is sorted in size
-bool ImageProcessor::findGoal(std::vector<Blob>& blob_list, Beacon& beacon) {
-	  for (Blob& blob : blob_list) {
-		  // Just find the biggest for now
-		  if (blob.color != c_BLUE) {
-			  continue;
-		  }
-		  // The goal is 34 cm by 20 cm
-		  // TODO refind threshold
-		  if (calculateAspectRatio(blob) > (((double)34 / 20) * 0.8)) {
-			  continue;
-		  }
-		  beacon.type = WO_OPP_GOAL;
-		  beacon.left = blob.left;
-		  beacon.right = blob.right;
-		  beacon.top = blob.top;
-		  beacon.bottom = blob.bottom;
-		  return true;
-	  }
+bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
+//	  for (Blob& blob : blob_list) {
+//		  // Just find the biggest for now
+//		  if (blob.color != c_BLUE) {
+//			  continue;
+//		  }
+//		  // The goal is 34 cm by 20 cm
+//		  // TODO refind threshold
+//		  if (calculateAspectRatio(blob) > (((double)34 / 20) * 0.8)) {
+//			  continue;
+//		  }
+//		  beacon.type = WO_OPP_GOAL;
+//		  beacon.left = blob.left;
+//		  beacon.right = blob.right;
+//		  beacon.top = blob.top;
+//		  beacon.bottom = blob.bottom;
+//		  return true;
+//	  }
 	  return false;
 }
 
 // Assume the blob_list is sorted in size
-bool ImageProcessor::findBall(std::vector<Blob>& blob_list, Beacon& beacon) {
+bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
+	printf("\n");
 	// TODO tilt-angle-test
 	for (Blob& blob : blob_list) {
 		// Check color
@@ -473,28 +523,42 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list, Beacon& beacon) {
 			continue;
 		}
 		// Check area to bounding box ratio, it should be close to Pi/4
-		const double tolerance = 0.1;
+		const double ratio_tolerance = 0.1;
+		const double density_tolerance = 0.05;
 		const double density_ref = 3.14159265359 / 4;
-		const double offset = density_ref * tolerance;
 		double density = calculateDensity(blob);
+
+		printf("density = %f\n", density);
 		// Ball density should be within +- 10% of ideal
-		if (!(density_ref - offset < density) && (density <  density_ref + offset)) {
+		if (!(density_ref * (1 - density_tolerance) < density) && (density <  density_ref * (1 + density_tolerance))) {
 			continue;
 		}
 
 		// Bounding box of ball should be close to square
 		double ratio = calculateAspectRatio(blob);
-		if (!(ratio > 1.0 + tolerance || ratio < 1 - tolerance)) {
+		printf("ratio = %f\n", ratio);
+		if (!(1.0 - ratio_tolerance < ratio && ratio < 1 + ratio_tolerance)) {
 			continue;
 		}
+		WorldObject* ball = &vblocks_.world_object->objects_[WO_BALL];
 
-		beacon.type = WO_BALL;
-		beacon.left = blob.left;
-		beacon.right = blob.right;
-		beacon.top = blob.top;
-		beacon.bottom = blob.bottom;
-		return true;
+		ball->imageCenterX = ((blob.left * 4) + (blob.right * 4)) / 2;
+		ball->imageCenterY = ((blob.top * 2) + (blob.bottom * 2)) / 2;
+
+		Position p = cmatrix_.getWorldPosition(ball->imageCenterX, ball->imageCenterY);
+		ball->visionBearing = cmatrix_.bearing(p);
+		ball->visionElevation = cmatrix_.elevation(p);
+		ball->visionDistance = cmatrix_.groundDistance(p);
+		ball->radius = (blob.left - blob.right + 1) * 4;
+		ball->seen = true;
+
+		// Fill in this non-sense extra stuff for drawing when running in core mode
+		ball_candidate_->centerX  = ball->imageCenterX;
+		ball_candidate_->centerY  = ball->imageCenterY;
+		ball_candidate_->radius  = ball->radius;
+		printf("BALL!\n");
 	}
+	printf("NOOOOOOOOOOOOOOOOOOO BALL!\n");
 	return false;
 }
 
@@ -513,7 +577,7 @@ void ImageProcessor::processFrame(){
 
   // Compute Run Lengths
   // Note that the dimension of rows is 120 x 80
-  printf("Building RunLengths...\n");
+//  printf("Building RunLengths...\n");
   std::vector<std::vector<RunLength> > rows (120);
   computeRunLength(rows);
 //	for (auto& row : rows) {
@@ -524,23 +588,23 @@ void ImageProcessor::processFrame(){
 //		}
 //	}
   // Link RunLengths into regions with the same parent
-  printf("Union find...\n");
+//  printf("Union find...\n");
   unionFind(rows);
 
   // Detect Blobs
-  printf("Building blogs...\n");
+//  printf("Building blogs...\n");
   std::unordered_map<RunLength*, Blob> blobs;
   computeBlobs(rows, blobs);
 
   // Sort blobs base on bounding box area
-  printf("Sorting blobs\n");
+//  printf("Sorting blobs\n");
   std::vector<Blob> blob_list;
   for (auto& pair : blobs) {
 	  Blob& blob = pair.second;
-	  // Filter out small blobs (pixel area)
-//	  if (blob.area < 8) {
+	  // Filter out small blobs (pixel area downsampled)
+	  if (blob.area > 5) {
 		  blob_list.push_back(blob);
-//	  }
+	  }
   }
   // Note that this sorts the list in descending order
   std::sort(blob_list.begin(), blob_list.end(), [] (const Blob& b1, const Blob& b2) {
@@ -557,7 +621,10 @@ void ImageProcessor::processFrame(){
 //  }
 //  printf("\n");
 
-  printf("Done!\n\n");
+//  printf("Done!\n\n");
+
+  findBall(blob_list);
+
 
   // Beacon types
   static map<WorldObjectType,vector<int>> beacon_configs = {
@@ -580,42 +647,40 @@ void ImageProcessor::processFrame(){
   };
 
   // Seach for all the beacons
-  std::vector<Beacon> beacons;
-  for (auto& beacon_config : beacon_configs) {
-//  auto& beacon_config = beacon_configs[WO_BEACON_YELLOW_BLUE];
-//  auto type = WO_BEACON_YELLOW_BLUE;
-//  auto colors = beacon_configs[WO_BEACON_YELLOW_BLUE];
-	  auto type = beacon_config.first;
-	  auto colors = beacon_config.second;
-
-	  Beacon beacon;
-	  bool beacon_found = findBeacon(blob_list, type, colors[0], colors[1], beacon);
-	  printf("Beacon found (top_color=%d, bottom_color=%d)? %d\n", colors[0], colors[1], beacon_found);
-	  if (beacon_found) {
-		  printf("Beacon (Left=%d, Right=%d, Top=%d, Bottom=%d)\n", beacon.left*4, beacon.right*4, beacon.top*2, beacon.bottom*2);
-		  beacons.push_back(beacon);
-	  }
-  }
-
-  detectBall();
-
-  // Display beacons
-  for (auto& beacon : beacons) {
-	  auto& object = vblocks_.world_object->objects_[beacon.type];
-	  object.imageCenterX = ((beacon.left * 4) + (beacon.right * 4)) / 2;
-	  object.imageCenterY = ((beacon.top * 2) + (beacon.bottom * 2)) / 2;
-	  printf("(ImageCenterX=%d, ImageCenterY=%d)\n", object.imageCenterX, object.imageCenterY);
-	  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, world_heights[beacon.type]);
-	  object.visionDistance = cmatrix_.groundDistance(position);
-
-	  printf("Vision Distance: %f\n", object.visionDistance);
-
-	  object.visionBearing = cmatrix_.bearing(position);
-	  object.seen = true;
-	  object.fromTopCamera = camera_ == Camera::TOP;
-	  visionLog(30, "saw %s at (%"
-			  "i,%i) with calculated distance %2.4f", getName(WO_BEACON_YELLOW_BLUE), object.imageCenterX, object.imageCenterY, object.visionDistance);
-  }
+//  std::vector<Beacon> beacons;
+//  for (auto& beacon_config : beacon_configs) {
+////  auto& beacon_config = beacon_configs[WO_BEACON_YELLOW_BLUE];
+////  auto type = WO_BEACON_YELLOW_BLUE;
+////  auto colors = beacon_configs[WO_BEACON_YELLOW_BLUE];
+//	  auto type = beacon_config.first;
+//	  auto colors = beacon_config.second;
+//
+//	  Beacon beacon;
+//	  bool beacon_found = findBeacon(blob_list, type, colors[0], colors[1], beacon);
+////	  printf("Beacon found (top_color=%d, bottom_color=%d)? %d\n", colors[0], colors[1], beacon_found);
+////	  if (beacon_found) {
+////		  printf("Beacon (Left=%d, Right=%d, Top=%d, Bottom=%d)\n", beacon.left*4, beacon.right*4, beacon.top*2, beacon.bottom*2);
+////		  beacons.push_back(beacon);
+////	  }
+//  }
+//
+//  // Display beacons
+//  for (auto& beacon : beacons) {
+//	  auto& object = vblocks_.world_object->objects_[beacon.type];
+//	  object.imageCenterX = ((beacon.left * 4) + (beacon.right * 4)) / 2;
+//	  object.imageCenterY = ((beacon.top * 2) + (beacon.bottom * 2)) / 2;
+//	  printf("(ImageCenterX=%d, ImageCenterY=%d)\n", object.imageCenterX, object.imageCenterY);
+//	  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, world_heights[beacon.type]);
+//	  object.visionDistance = cmatrix_.groundDistance(position);
+//
+//	  printf("Vision Distance: %f\n", object.visionDistance);
+//
+//	  object.visionBearing = cmatrix_.bearing(position);
+//	  object.seen = true;
+//	  object.fromTopCamera = camera_ == Camera::TOP;
+//	  visionLog(30, "saw %s at (%"
+//			  "i,%i) with calculated distance %2.4f", getName(WO_BEACON_YELLOW_BLUE), object.imageCenterX, object.imageCenterY, object.visionDistance);
+//  }
 }
 
 void ImageProcessor::detectBall() {
@@ -721,7 +786,12 @@ std::vector<BallCandidate*> ImageProcessor::getBallCandidates() {
 }
 
 BallCandidate* ImageProcessor::getBestBallCandidate() {
-  return NULL;
+	WorldObject* ball = &vblocks_.world_object->objects_[WO_BALL];
+	if (ball->seen) {
+		return ball_candidate_;
+	} else {
+		return NULL;
+	}
 }
 
 void ImageProcessor::enableCalibration(bool value) {
