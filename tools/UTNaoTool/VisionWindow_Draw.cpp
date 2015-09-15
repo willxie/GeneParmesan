@@ -74,6 +74,7 @@ void VisionWindow::updateBigImage() {
       drawBall(bigImage);
       drawBallCands(bigImage);
       drawBeacons(bigImage);
+      drawOpponentGoal(bigImage);
     }
   }
 
@@ -100,10 +101,13 @@ void VisionWindow::redrawImages(ImageWidget* rawImage, ImageWidget* segImage, Im
     drawBall(rawImage);
     drawBallCands(rawImage);
     drawBeacons(rawImage);
+    drawOpponentGoal(rawImage);
 
     drawBall(segImage);
     drawBallCands(segImage);
     drawBeacons(segImage);
+    drawOpponentGoal(segImage);
+
   }
 
   drawBall(verticalBlobImage);
@@ -332,4 +336,23 @@ void VisionWindow::drawBeacons(ImageWidget* image) {
     painter.setPen(bpen);
     painter.fillPath(bpath, QBrush(beacon.second[1]));
   }
+}
+
+void VisionWindow::drawOpponentGoal(ImageWidget* image) {
+  if(world_object_block_ == NULL) return;
+
+  QPainter painter(image->getImage());
+  painter.setPen(QPen(QColor(0, 0, 255), 3));
+
+  WorldObject* goal = &world_object_block_->objects_[WO_OPP_GOAL];
+  if(!goal->seen) return;
+
+  if( (goal->fromTopCamera && _widgetAssignments[image] == IMAGE_BOTTOM) ||
+		  (!goal->fromTopCamera && _widgetAssignments[image] == IMAGE_TOP) ) return;
+  int radius = goal->radius;   // Radius is the width
+  int width = radius;
+  int length = radius * 20 / 34;
+  int cornerX = goal->imageCenterX - (width / 2);
+  int cornerY = goal->imageCenterY - (length / 2);
+  painter.drawRect(cornerX, cornerY, width, length);
 }
