@@ -385,6 +385,8 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 				continue;
 			}
 
+			// BEGIN HEURISTICS
+
 			// Are the two blobs not close enough horizontally?
 			int horizontal_diff = std::abs((top_blob.left+top_blob.right)/2 - (middle_blob.left+middle_blob.right)/2);
 			printf("    Horizontal Difference: %d\n", horizontal_diff);
@@ -423,55 +425,6 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			printf("    PASSED THE VERTICAL TEST!\n");
 
 			return true;
-
-			// Find a robot white blob right below this one
-			for (auto& bottom_blob : blobs) {
-				// Color not robot white?
-				if (bottom_blob.color != c_ROBOT_WHITE) {
-					continue;
-				}
-
-				// The robot white blob is not under the bottom blob?
-				int horizontal_diff = std::abs((middle_blob.left+middle_blob.right)/2 - (bottom_blob.left+bottom_blob.right)/2);
-				int vertical_diff = std::abs(middle_blob.bottom - bottom_blob.top);
-				if (horizontal_diff > 5 || vertical_diff > 5) {
-					continue;
-				}
-
-//				// Check and see if the three blobs are the same size
-//				if (std::abs((double)top_blob.area/middle_blob.area - 1) > 0.3) {
-//					printf("        FAILED THE BLOB RATIO TEST!\n");
-//					printf("        RATIO = %d/%d = %f\n", top_blob.area, middle_blob.area, (double)top_blob.area/middle_blob.area);
-//					printf("        Top blob (x=%d, y=%d, area=%d)\n",
-//							(top_blob.left*4 + top_blob.right*4) / 2,
-//							(top_blob.top*2 + top_blob.bottom*2) / 2,
-//							top_blob.area);
-//					printf("        Middle blob (x=%d, y=%d, area=%d)\n",
-//							(middle_blob.left*4 + middle_blob.right*4) / 2,
-//							(middle_blob.top*2 + middle_blob.bottom*2) / 2,
-//							middle_blob.area);
-//					printf("        Bottom blob (x=%d, y=%d, area=%d)\n",
-//							(bottom_blob.left*4 + bottom_blob.right*4) / 2,
-//							(bottom_blob.top*2 + bottom_blob.bottom*2) / 2,
-//							bottom_blob.area);
-//					continue;
-//				}
-
-				// The top blob is right below the middle blob and they're the same
-				// color. Not only that; there's a robot white blob below the
-				// middle one. This is surely a beacon!
-				beacon.type = beacon_type;
-				beacon.top = top_blob.top;
-
-				// TODO sometime bottom is > top (?)
-				beacon.bottom = bottom_blob.bottom;
-
-				// Be inclusive and take whichever blob extends furthest left/right
-				beacon.left = std::min(top_blob.left, middle_blob.left);
-				beacon.right = std::max(top_blob.right, middle_blob.right);
-
-				return true;
-			}
 		}
 	}
 
