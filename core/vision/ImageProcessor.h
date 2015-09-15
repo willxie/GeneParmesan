@@ -44,8 +44,8 @@ class ImageProcessor {
     bool findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon_type, unsigned char top_color, unsigned char bottom_color, Beacon& beacon);
     double calculateAspectRatio(Blob& blob);
     double calculateDensity(Blob& blob);
-    bool findGoal(std::vector<Blob>& blob_list, Beacon& beacon);
-    bool findBall(std::vector<Blob>& blob_list, Beacon& beacon);
+    bool findGoal(std::vector<Blob>& blob_list);
+    bool findBall(std::vector<Blob>& blob_list);
     void enableCalibration(bool value);
     void updateTransform();
     std::vector<BallCandidate*> getBallCandidates();
@@ -63,6 +63,8 @@ class ImageProcessor {
     Camera::Type camera_;
     CameraMatrix cmatrix_;
     
+    BallCandidate* ball_candidate_;
+
     VisionParams vparams_;
     unsigned char* color_table_;
     TextLogger* textlogger;
