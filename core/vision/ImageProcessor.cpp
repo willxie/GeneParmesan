@@ -23,6 +23,7 @@ struct ImageProcessor::Blob {
 	int runs; // TODO for testing please remove after
 	int parent_x;
 	int parent_y;
+	bool used;
 };
 
 struct ImageProcessor::Beacon {
@@ -320,7 +321,7 @@ void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, st
 				// Retrieve the blob associated with this parent
 				std::unordered_map<RunLength*, Blob>::const_iterator got = blobs.find(parent);
 				if (got == blobs.end()) {
-					// Creating the blob
+					// Creating the blob and initialize
 
 					Blob blob;
 					blob.area = runLength.x_right - runLength.x_left + 1;
@@ -330,6 +331,7 @@ void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, st
 					blob.runs = 0; // TODO remove
 					blob.parent_x = runLength.x_left;
 					blob.parent_y = row;
+					blob.used = false;
 					blobs[parent] = blob;
 
 //					printf("ERROR: PARENT NOT FOUND\n");
@@ -531,44 +533,108 @@ double ImageProcessor::calculateDensity(Blob& blob) {
 
 // Assume the blob_list is sorted in size
 bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
-//	  for (Blob& blob : blob_list) {
-//		  // Just find the biggest for now
-//		  if (blob.color != c_BLUE) {
-//			  continue;
-//		  }
-//		  // The goal is 34 cm by 20 cm
-//		  // TODO refind threshold
-//		  if (calculateAspectRatio(blob) > (((double)34 / 20) * 0.8)) {
-//			  continue;
-//		  }
-//		  beacon.type = WO_OPP_GOAL;
-//		  beacon.left = blob.left;
-//		  beacon.right = blob.right;
-//		  beacon.top = blob.top;
-//		  beacon.bottom = blob.bottom;
-//		  return true;
-//	  }
-	  return false;
+	std::vector<BallCandidate> candidate_list;
+
+//	printf("================== Goal ===================\n");
+	for (Blob& blob : blob_list) {
+		if (blob.used) {
+			continue;
+		}
+		if (blob.color != c_BLUE) {
+			continue;
+		}
+
+		const int area_threshold = 15;
+//		printf("area = %d\n", blob.area);
+		// Take out small blobs, the goal should be BIG relative to other blue things
+		if (blob.area < area_threshold) {
+			continue;
+		}
+
+		const double density_tolerance = 0.30;
+		const double ratio_tolerance = 0.30;
+
+		const double density_ref = 1;
+		const double ratio_ref = 34.0 / 20.0; // Goal should be 34cm x 20cm  
+
+		// Deviation from the ideal value
+		double density = std::abs(calculateDensity(blob) - density_ref);
+//		printf("delta density = %f\n", density);
+		// Ball density should be within +- 10% of ideal
+		if (!(density < density_tolerance)) {
+			continue;
+		}
+
+		// Ratio is above a threshold
+		double ratio = std::abs(calculateAspectRatio(blob) - ratio_ref);
+//		printf("delta ratio = %f\n", ratio);
+		if (!(ratio < ratio_tolerance)) {
+			continue;
+		}
+
+
+		BallCandidate candidate;
+		candidate.centerX = ((blob.left * 4) + (blob.right * 4)) / 2;
+		candidate.centerY = ((blob.top * 2) + (blob.bottom * 2)) / 2;
+		candidate.radius  = ((blob.right - blob.left + 1) * 4); // Width
+		candidate.confidence = (ratio * 1.0)+ (density * 1.0);  // The lower the better
+		candidate_list.push_back(candidate);
+	}
+	
+	if (candidate_list.size() == 0) {
+		return false;
+	}
+
+	// Find best ball, lowest confidence
+	std::sort(candidate_list.begin(), candidate_list.end(), [] (const BallCandidate& bc1, const BallCandidate& bc2) {
+		// Bounding box area (not pixel area)
+		return bc1.confidence < bc2.confidence;
+	});
+
+	// This is it!
+	BallCandidate& candidate = candidate_list.front();
+
+	WorldObject* goal = &vblocks_.world_object->objects_[WO_OPP_GOAL];
+
+	goal->imageCenterX = candidate.centerX;
+	goal->imageCenterY = candidate.centerY;
+	goal->radius = candidate.radius;
+
+	Position p = cmatrix_.getWorldPosition(goal->imageCenterX, goal->imageCenterY);
+	goal->visionBearing = cmatrix_.bearing(p);
+	goal->visionElevation = cmatrix_.elevation(p);
+	goal->visionDistance = cmatrix_.groundDistance(p);
+	goal->seen = true;
+	goal->fromTopCamera = camera_ == Camera::TOP;
+
+//	printf("GOAL!\n");
+
+	return true;
 }
 
 // Assume the blob_list is sorted in size
 bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 	std::vector<BallCandidate> ball_candidate_list;
+//	printf("================== Ball ===================\n");
 
-	printf("\n");
+//	printf("\n");
 	// TODO tilt-angle-test
 	for (Blob& blob : blob_list) {
+		if (blob.used) {
+			continue;
+		}
 		// Check color
 		if (blob.color != c_ORANGE) {
 			continue;
 		}
 		// Check area to bounding box ratio, it should be close to Pi/4
-		const double ratio_tolerance = 0.15;
 		const double density_tolerance = 0.10;
+		const double ratio_tolerance = 0.15;
+
 		const double density_ref = 3.14159265359 / 4;
 		// Deviation from the ideal value
 		double density = std::abs(calculateDensity(blob) - density_ref);
-		printf("delta density = %f\n", density);
+//		printf("delta density = %f\n", density);
 		// Ball density should be within +- 10% of ideal
 		if (!(density < density_tolerance)) {
 			continue;
@@ -576,7 +642,7 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 
 		// Bounding box of ball should be close to square
 		double ratio = std::abs(calculateAspectRatio(blob) - 1);
-		printf("delta ratio = %f\n", ratio);
+//		printf("delta ratio = %f\n", ratio);
 		if (!(ratio < ratio_tolerance)) {
 			continue;
 		}
@@ -590,7 +656,6 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 	}
 
 	if (ball_candidate_list.size() == 0) {
-		printf("NOOOOOOOOOOOOOOOOOOO BALL!\n");
 		return false;
 	}
 
@@ -613,12 +678,14 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 	ball->visionElevation = cmatrix_.elevation(p);
 	ball->visionDistance = cmatrix_.groundDistance(p);
 	ball->seen = true;
+	ball->fromTopCamera = camera_ == Camera::TOP;
+
 
 	// Fill in this non-sense extra stuff for drawing when running in core mode
 	ball_candidate_->centerX  = ball->imageCenterX;
 	ball_candidate_->centerY  = ball->imageCenterY;
 	ball_candidate_->radius  = ball->radius;
-	printf("BALL!\n");
+//	printf("BALL!\n");
 
 	return true;
 }
@@ -641,13 +708,7 @@ void ImageProcessor::processFrame(){
 //  printf("Building RunLengths...\n");
   std::vector<std::vector<RunLength> > rows (120);
   computeRunLength(rows);
-//	for (auto& row : rows) {
-//		for (auto& rl : row) {
-//			printf("runlength: %p\n", &rl);
-//			printf("runlength->parent: %p\n", rl.parent);
-//			printf("----------\n");
-//		}
-//	}
+
   // Link RunLengths into regions with the same parent
 //  printf("Union find...\n");
   unionFind(rows);
@@ -663,7 +724,7 @@ void ImageProcessor::processFrame(){
   for (auto& pair : blobs) {
 	  Blob& blob = pair.second;
 	  // Filter out small blobs (pixel area downsampled)
-	  if (blob.area > 7) {
+	  if (blob.area > 6) {
 		  blob_list.push_back(blob);
 	  }
   }
@@ -685,6 +746,7 @@ void ImageProcessor::processFrame(){
 //  printf("Done!\n\n");
 
   findBall(blob_list);
+  findGoal(blob_list);
 
 
   // Beacon types
@@ -791,6 +853,7 @@ bool ImageProcessor::findBall(int& imageX, int& imageY) {
 		imageX = totalX / total;
 		imageY = totalY / total;
 	}
+
 //	printf("c_ORANGE = %d,\t c_temp = %d\n", (int)c_ORANGE, (int)c_temp);
 //	printf("total orange pixels: %d, \t %d, \t %d, \n", total, imageX, imageY);
 

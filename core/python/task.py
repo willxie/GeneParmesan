@@ -72,7 +72,7 @@ class BaseTask(object):
 
   def getTime(self):
     return self._timer.elapsed()
-  
+
   def getFrames(self):
     return util.currentFrame() - self._startFrame
 
@@ -135,7 +135,7 @@ class Task(BaseTask):
   def processFrame(self):
     self._frames += 1
     if UTdebug.TIME: UTdebug.stimer(str(self))
-    if self.aborted(): 
+    if self.aborted():
       if UTdebug.TIME: UTdebug.ttimer(str(self))
       return
     if self._subtask and not self._subtask.finished():
@@ -157,7 +157,7 @@ class MultiTask(BaseTask):
     self._chains = []
     self._chainIndexes = []
     self.idpChains = False
-    if len(tasks) and 'name' not in kwargs: 
+    if len(tasks) and 'name' not in kwargs:
       kwargs['name'] = "Multi(" + ",".join(map(repr,tasks)) + ")"
     for t in tasks:
       self._chains.append([t])
