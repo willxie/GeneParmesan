@@ -338,46 +338,81 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 				((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
 				top_blob.top * 2, top_blob.bottom * 2, top_blob.left * 4, top_blob.right * 4);
 
-		for (auto& bottom_blob : blobs) {
+		for (auto& middle_blob : blobs) {
 			// Color not `bottom_color`?
-			if (bottom_blob.color != bottom_color) {
+			if (middle_blob.color != bottom_color) {
 				continue;
 			}
 
 			// Are the two blobs not close enough horizontally?
-			int horizontal_diff = std::abs((top_blob.left+top_blob.right)/2 - (bottom_blob.left+bottom_blob.right)/2);
+			int horizontal_diff = std::abs((top_blob.left+top_blob.right)/2 - (middle_blob.left+middle_blob.right)/2);
 			printf("    Horizontal Difference: %d\n", horizontal_diff);
 			if (horizontal_diff > 5)
 				continue;
 
-			printf("    Bottom blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d)\n",
-					((bottom_blob.left * 4) + (bottom_blob.right * 4)) / 2,
-					((bottom_blob.top * 2) + (bottom_blob.bottom * 2)) / 2,
-					bottom_blob.top * 2, bottom_blob.bottom * 2, bottom_blob.left * 4, bottom_blob.right * 4);
+			printf("    Middle blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d)\n",
+					((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+					((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+					middle_blob.top * 2, middle_blob.bottom * 2, middle_blob.left * 4, middle_blob.right * 4);
 
 			// Are the two blobs not close enough vertically?
-			if (std::abs(top_blob.bottom - bottom_blob.top) > 5) {
+			if (std::abs(top_blob.bottom - middle_blob.top) > 5) {
 				printf("    FAILED THE VERTICAL TEST!\n");
 				printf("        Top Blob: (Bottom=%d)\n", top_blob.bottom);
-				printf("        Bottom Blob: (Top=%d, Bottom=%d)\n", bottom_blob.top, bottom_blob.bottom);
+				printf("        Bottom Blob: (Top=%d, Bottom=%d)\n", middle_blob.top, middle_blob.bottom);
 				continue;
 			}
 
 			printf("    PASSED THE VERTICAL TEST!\n");
 
-			// The top blob is right below the bottom blob and they're the same
-			// color. Fill in found beacon object!
-			beacon.type = beacon_type;
-			beacon.top = top_blob.top;
+			// Find a robot white blob right below this one
+			for (auto& bottom_blob : blobs) {
+				// Color not robot white?
+				if (bottom_blob.color != c_ROBOT_WHITE) {
+					continue;
+				}
 
-			// TODO sometime bottom is > top (?)
-			beacon.bottom = bottom_blob.bottom;
+				// The robot white blob is not under the bottom blob?
+				int horizontal_diff = std::abs((middle_blob.left+middle_blob.right)/2 - (bottom_blob.left+bottom_blob.right)/2);
+				int vertical_diff = std::abs(middle_blob.bottom - bottom_blob.top);
+				if (horizontal_diff > 5 || vertical_diff > 5) {
+					continue;
+				}
 
-			// Be inclusive and take whichever blob extends furthest left/right
-			beacon.left = std::min(top_blob.left, bottom_blob.left);
-			beacon.right = std::max(top_blob.right, bottom_blob.right);
+				// Check and see if the three blobs are the same size
+				if (std::abs((double)top_blob.area/middle_blob.area - 1) > 0.3) {
+					printf("        FAILED THE BLOB RATIO TEST!\n");
+					printf("        RATIO = %d/%d = %f\n", top_blob.area, middle_blob.area, (double)top_blob.area/middle_blob.area);
+					printf("        Top blob (x=%d, y=%d, area=%d)\n",
+							(top_blob.left*4 + top_blob.right*4) / 2,
+							(top_blob.top*2 + top_blob.bottom*2) / 2,
+							top_blob.area);
+					printf("        Middle blob (x=%d, y=%d, area=%d)\n",
+							(middle_blob.left*4 + middle_blob.right*4) / 2,
+							(middle_blob.top*2 + middle_blob.bottom*2) / 2,
+							middle_blob.area);
+					printf("        Bottom blob (x=%d, y=%d, area=%d)\n",
+							(bottom_blob.left*4 + bottom_blob.right*4) / 2,
+							(bottom_blob.top*2 + bottom_blob.bottom*2) / 2,
+							bottom_blob.area);
+					continue;
+				}
 
-			return true;
+				// The top blob is right below the middle blob and they're the same
+				// color. Not only that; there's a robot white blob below the
+				// middle one. This is surely a beacon!
+				beacon.type = beacon_type;
+				beacon.top = top_blob.top;
+
+				// TODO sometime bottom is > top (?)
+				beacon.bottom = bottom_blob.bottom;
+
+				// Be inclusive and take whichever blob extends furthest left/right
+				beacon.left = std::min(top_blob.left, middle_blob.left);
+				beacon.right = std::max(top_blob.right, middle_blob.right);
+
+				return true;
+			}
 		}
 	}
 
@@ -464,7 +499,7 @@ void ImageProcessor::processFrame(){
   // Sort blobs base on bounding box area
   // TODO filter out small blobs
   printf("Sorting blobs\n");
-  std::vector<Blob> blob_list (blobs.size());
+  std::vector<Blob> blob_list;
   for (auto& pair : blobs) {
 	  Blob& blob = pair.second;
 	  blob_list.push_back(blob);
