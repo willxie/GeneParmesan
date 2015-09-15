@@ -42,7 +42,8 @@ class ImageProcessor {
     void unionFind(std::vector<std::vector<RunLength> >& rows);
     void computeBlobs(std::vector<std::vector<RunLength> >& rows, std::unordered_map<RunLength*, Blob>& blobs);
     bool findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon_type, unsigned char top_color, unsigned char bottom_color, Beacon& beacon);
-    double findAspectRatio(Blob& blob);
+    double calculateAspectRatio(Blob& blob);
+    double calculateDensity(Blob& blob);
     bool findGoal(std::vector<Blob>& blob_list, Beacon& beacon);
     bool findBall(std::vector<Blob>& blob_list, Beacon& beacon);
     void enableCalibration(bool value);
