@@ -553,6 +553,8 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 
 // Assume the blob_list is sorted in size
 bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
+	std::vector<BallCandidate> ball_candidate_list;
+
 	printf("\n");
 	// TODO tilt-angle-test
 	for (Blob& blob : blob_list) {
@@ -561,44 +563,64 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 			continue;
 		}
 		// Check area to bounding box ratio, it should be close to Pi/4
-		const double ratio_tolerance = 0.1;
-		const double density_tolerance = 0.1;
+		const double ratio_tolerance = 0.15;
+		const double density_tolerance = 0.10;
 		const double density_ref = 3.14159265359 / 4;
-		double density = calculateDensity(blob);
-
-		printf("density = %f\n", density);
+		// Deviation from the ideal value
+		double density = std::abs(calculateDensity(blob) - density_ref);
+		printf("delta density = %f\n", density);
 		// Ball density should be within +- 10% of ideal
-		if (!(density_ref * (1 - density_tolerance) < density) && (density <  density_ref * (1 + density_tolerance))) {
+		if (!(density < density_tolerance)) {
 			continue;
 		}
 
 		// Bounding box of ball should be close to square
-		double ratio = calculateAspectRatio(blob);
-		printf("ratio = %f\n", ratio);
-		if (!(1.0 - ratio_tolerance < ratio && ratio < 1 + ratio_tolerance)) {
+		double ratio = std::abs(calculateAspectRatio(blob) - 1);
+		printf("delta ratio = %f\n", ratio);
+		if (!(ratio < ratio_tolerance)) {
 			continue;
 		}
-		WorldObject* ball = &vblocks_.world_object->objects_[WO_BALL];
 
-		ball->imageCenterX = ((blob.left * 4) + (blob.right * 4)) / 2;
-		ball->imageCenterY = ((blob.top * 2) + (blob.bottom * 2)) / 2;
-
-		Position p = cmatrix_.getWorldPosition(ball->imageCenterX, ball->imageCenterY);
-		ball->visionBearing = cmatrix_.bearing(p);
-		ball->visionElevation = cmatrix_.elevation(p);
-		ball->visionDistance = cmatrix_.groundDistance(p);
-		ball->radius = (blob.left - blob.right) * 4;
-		ball->seen = true;
-
-		// Fill in this non-sense extra stuff for drawing when running in core mode
-		ball_candidate_->centerX  = ball->imageCenterX;
-		ball_candidate_->centerY  = ball->imageCenterY;
-		ball_candidate_->radius  = ball->radius;
-		printf("BALL!\n");
-		return true;
+		BallCandidate ball_candidate;
+		ball_candidate.centerX = ((blob.left * 4) + (blob.right * 4)) / 2;
+		ball_candidate.centerY = ((blob.top * 2) + (blob.bottom * 2)) / 2;
+		ball_candidate.radius  = ((blob.right - blob.left + 1) * 4) / 2;
+		ball_candidate.confidence = (ratio * 1.0)+ (density * 2.0);  // The lower the better
+		ball_candidate_list.push_back(ball_candidate);
 	}
-	printf("NOOOOOOOOOOOOOOOOOOO BALL!\n");
-	return false;
+
+	if (ball_candidate_list.size() == 0) {
+		printf("NOOOOOOOOOOOOOOOOOOO BALL!\n");
+		return false;
+	}
+
+	// Find best ball, lowest confidence
+	std::sort(ball_candidate_list.begin(), ball_candidate_list.end(), [] (const BallCandidate& bc1, const BallCandidate& bc2) {
+		// Bounding box area (not pixel area)
+		return bc1.confidence < bc2.confidence;
+	});
+	// This is it!
+	BallCandidate& ball_candidate = ball_candidate_list.front();
+
+	WorldObject* ball = &vblocks_.world_object->objects_[WO_BALL];
+
+	ball->imageCenterX = ball_candidate.centerX;
+	ball->imageCenterY = ball_candidate.centerY;
+	ball->radius = ball_candidate.radius;
+
+	Position p = cmatrix_.getWorldPosition(ball->imageCenterX, ball->imageCenterY);
+	ball->visionBearing = cmatrix_.bearing(p);
+	ball->visionElevation = cmatrix_.elevation(p);
+	ball->visionDistance = cmatrix_.groundDistance(p);
+	ball->seen = true;
+
+	// Fill in this non-sense extra stuff for drawing when running in core mode
+	ball_candidate_->centerX  = ball->imageCenterX;
+	ball_candidate_->centerY  = ball->imageCenterY;
+	ball_candidate_->radius  = ball->radius;
+	printf("BALL!\n");
+
+	return true;
 }
 
 void ImageProcessor::processFrame(){
@@ -641,7 +663,7 @@ void ImageProcessor::processFrame(){
   for (auto& pair : blobs) {
 	  Blob& blob = pair.second;
 	  // Filter out small blobs (pixel area downsampled)
-	  if (blob.area > 5) {
+	  if (blob.area > 7) {
 		  blob_list.push_back(blob);
 	  }
   }
