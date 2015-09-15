@@ -385,32 +385,73 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 				continue;
 			}
 
+//			printf("    Middle blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d)\n",
+//					((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+//					((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+//					middle_blob.top * 2, middle_blob.bottom * 2, middle_blob.left * 4, middle_blob.right * 4);
+
 			// BEGIN HEURISTICS
 
-			// Are the two blobs not close enough horizontally?
+			// Horizontal Proximity
 			int horizontal_diff = std::abs((top_blob.left+top_blob.right)/2 - (middle_blob.left+middle_blob.right)/2);
 			printf("    Horizontal Difference: %d\n", horizontal_diff);
 			if (horizontal_diff > 5) {
 				continue;
 			}
 
-//			printf("    Middle blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d)\n",
-//					((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
-//					((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
-//					middle_blob.top * 2, middle_blob.bottom * 2, middle_blob.left * 4, middle_blob.right * 4);
-//
-//			// Are the two blobs not close enough vertically?
-//			if (std::abs(top_blob.bottom - middle_blob.top) > 5) {
-//				printf("    FAILED THE VERTICAL TEST!\n");
-//				printf("        Top Blob: (Bottom=%d)\n", top_blob.bottom);
-//				printf("        Bottom Blob: (Top=%d, Bottom=%d)\n", middle_blob.top, middle_blob.bottom);
-//			}
-
-			// TODO change it back to abs if you want
-			const int top_bottom_offset = 2;
-			if (!(top_blob.bottom + top_bottom_offset >= middle_blob.top && middle_blob.bottom > top_blob.bottom + top_bottom_offset)) {
+			// Vertical Proximity
+			const int TOP_BOTTOM_OFFSET = 2;
+			if (!(top_blob.bottom + TOP_BOTTOM_OFFSET >= middle_blob.top && middle_blob.bottom > top_blob.bottom + TOP_BOTTOM_OFFSET)) {
 				continue;
 			}
+
+			// Area
+			const float AREA_DIFFERENCE_LIMIT = 0.5;
+			int top_area = top_blob.area;
+			int bottom_area = middle_blob.area;
+			double area_ratio = ((double)top_area)/bottom_area;
+			double area_distance = std::abs(area_ratio-1);
+			if (area_distance > AREA_DIFFERENCE_LIMIT) {
+				printf("    FAILED AREA TEST!!!\n");
+				printf("    Area Ratio: %f\n", area_ratio);
+				printf("    Area Distance: %f\n", area_distance);
+				printf("    AREA_DIFFERENCE_LIMIT: %f\n", AREA_DIFFERENCE_LIMIT);
+				printf("    Top blob @ (x=%d, y=%d, area=%d)\n",
+						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+						top_area);
+				printf("    middle blob @ (x=%d, y=%d, area=%d)\n",
+						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+						bottom_area);
+				continue;
+			}
+
+			// Aspect Ratio
+			const float ASPECT_RATIO_DIFFERENCE_LIMIT = 0.5;
+			double aspect_ratio = calculateAspectRatio(top_blob) + calculateAspectRatio(middle_blob);
+			double difference = std::abs(aspect_ratio - 2);
+			if (difference > ASPECT_RATIO_DIFFERENCE_LIMIT) {
+				printf("    FAILED ASPECT RATIO TEST!!!\n");
+				printf("    Top blob @ (x=%d, y=%d, aspect_ratio=%f, difference=%f)\n",
+						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+						aspect_ratio, difference);
+				printf("    middle blob @ (x=%d, y=%d, aspect_ratio=%f, difference=%f)\n",
+						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+						aspect_ratio, difference);
+				continue;
+			}
+
+			// Density
+			const double DENSITY_DIFFERENCE_LIMIT = 0.5;
+			double top_density = calculateDensity(top_blob);
+			double bottom_density = calculateDensity(middle_blob);
+			if (std::abs((double) top_density/bottom_density - 1) > DENSITY_DIFFERENCE_LIMIT)
+				continue;
+
+			// Passed all heuristics!
 
 			beacon.type = beacon_type;
 			beacon.top = top_blob.top;
@@ -433,13 +474,13 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 
 // width / height of bounding box in original image frame. Ratio = 1 means it's a square.
 double ImageProcessor::calculateAspectRatio(Blob& blob) {
-	double ratio = (blob.right - blob.left + 1) * 4 / ((blob.bottom - blob.top + 1) * 2);
+	return (double) (blob.right - blob.left + 1) * 4 / ((blob.bottom - blob.top + 1) * 2);
 }
 
 // Density (area of blob) / (area of bounding box)
 double ImageProcessor::calculateDensity(Blob& blob) {
 	// This is downsampled space. But the ratio should be the same
-	return blob.area / ((blob.right - blob.left + 1) * (blob.bottom - blob.top + 1));
+	return (double) blob.area / ((blob.right - blob.left + 1) * (blob.bottom - blob.top + 1));
 }
 
 // Assume the blob_list is sorted in size
