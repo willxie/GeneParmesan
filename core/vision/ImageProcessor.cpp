@@ -372,6 +372,10 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 		if (top_blob.color != top_color) {
 			continue;
 		}
+
+		if (top_blob.area < 7)
+			continue;
+
 		printf("====\n");
 		printf("====Top blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d)\n",
 				((top_blob.left * 4) + (top_blob.right * 4)) / 2,
@@ -385,17 +389,15 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 				continue;
 			}
 
-//			printf("    Middle blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d)\n",
-//					((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
-//					((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
-//					middle_blob.top * 2, middle_blob.bottom * 2, middle_blob.left * 4, middle_blob.right * 4);
+			if (middle_blob.area < 7)
+				continue;
 
 			// BEGIN HEURISTICS
 
 			// Horizontal Proximity
 			int horizontal_diff = std::abs((top_blob.left+top_blob.right)/2 - (middle_blob.left+middle_blob.right)/2);
 			printf("    Horizontal Difference: %d\n", horizontal_diff);
-			if (horizontal_diff > 5) {
+			if (horizontal_diff > 3) {
 				continue;
 			}
 
@@ -405,44 +407,44 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 				continue;
 			}
 
-			// Area
-			const float AREA_DIFFERENCE_LIMIT = 0.5;
-			int top_area = top_blob.area;
-			int bottom_area = middle_blob.area;
-			double area_ratio = ((double)top_area)/bottom_area;
-			double area_distance = std::abs(area_ratio-1);
-			if (area_distance > AREA_DIFFERENCE_LIMIT) {
-				printf("    FAILED AREA TEST!!!\n");
-				printf("    Area Ratio: %f\n", area_ratio);
-				printf("    Area Distance: %f\n", area_distance);
-				printf("    AREA_DIFFERENCE_LIMIT: %f\n", AREA_DIFFERENCE_LIMIT);
-				printf("    Top blob @ (x=%d, y=%d, area=%d)\n",
-						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
-						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
-						top_area);
-				printf("    middle blob @ (x=%d, y=%d, area=%d)\n",
-						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
-						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
-						bottom_area);
-				continue;
-			}
+//			// Area
+//			const float AREA_DIFFERENCE_LIMIT = 0.5;
+//			int top_area = top_blob.area;
+//			int bottom_area = middle_blob.area;
+//			double area_ratio = ((double)top_area)/bottom_area;
+//			double area_distance = std::abs(area_ratio-1);
+//			if (area_distance > AREA_DIFFERENCE_LIMIT) {
+//				printf("    FAILED AREA TEST!!!\n");
+//				printf("    Area Ratio: %f\n", area_ratio);
+//				printf("    Area Distance: %f\n", area_distance);
+//				printf("    AREA_DIFFERENCE_LIMIT: %f\n", AREA_DIFFERENCE_LIMIT);
+//				printf("    Top blob @ (x=%d, y=%d, area=%d)\n",
+//						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+//						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+//						top_area);
+//				printf("    middle blob @ (x=%d, y=%d, area=%d)\n",
+//						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+//						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+//						bottom_area);
+//				continue;
+//			}
 
-			// Aspect Ratio
-			const float ASPECT_RATIO_DIFFERENCE_LIMIT = 0.5;
-			double aspect_ratio = calculateAspectRatio(top_blob) + calculateAspectRatio(middle_blob);
-			double difference = std::abs(aspect_ratio - 2);
-			if (difference > ASPECT_RATIO_DIFFERENCE_LIMIT) {
-				printf("    FAILED ASPECT RATIO TEST!!!\n");
-				printf("    Top blob @ (x=%d, y=%d, aspect_ratio=%f, difference=%f)\n",
-						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
-						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
-						aspect_ratio, difference);
-				printf("    middle blob @ (x=%d, y=%d, aspect_ratio=%f, difference=%f)\n",
-						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
-						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
-						aspect_ratio, difference);
-				continue;
-			}
+//			// Aspect Ratio
+//			const float ASPECT_RATIO_DIFFERENCE_LIMIT = 0.5;
+//			double aspect_ratio = calculateAspectRatio(top_blob) + calculateAspectRatio(middle_blob);
+//			double difference = std::abs(aspect_ratio - 2);
+//			if (difference > ASPECT_RATIO_DIFFERENCE_LIMIT) {
+//				printf("    FAILED ASPECT RATIO TEST!!!\n");
+//				printf("    Top blob @ (x=%d, y=%d, aspect_ratio=%f, difference=%f)\n",
+//						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+//						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+//						aspect_ratio, difference);
+//				printf("    middle blob @ (x=%d, y=%d, aspect_ratio=%f, difference=%f)\n",
+//						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+//						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+//						aspect_ratio, difference);
+//				continue;
+//			}
 
 			// Density
 			const double DENSITY_DIFFERENCE_LIMIT = 0.5;
@@ -451,21 +453,36 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			if (std::abs((double) top_density/bottom_density - 1) > DENSITY_DIFFERENCE_LIMIT)
 				continue;
 
-			// Passed all heuristics!
+			// Make sure there's a robot white blob below
+			for (auto& bottom_blob : blobs) {
+			        // Color not robot white?
+//			        if (bottom_blob.color != c_ROBOT_WHITE) {
+//			                continue;
+//			        }
+//
+//			        // The robot white blob is not under the bottom blob?
+//			        int horizontal_diff = std::abs((middle_blob.left+middle_blob.right)/2 - (bottom_blob.left+bottom_blob.right)/2);
+//			        int vertical_diff = std::abs(middle_blob.bottom - bottom_blob.top);
+//			        if (horizontal_diff > 5 || !(middle_blob.bottom + TOP_BOTTOM_OFFSET >= bottom_blob.top && bottom_blob.bottom > middle_blob.bottom + TOP_BOTTOM_OFFSET)) {
+//			                continue;
+//			        }
 
-			beacon.type = beacon_type;
-			beacon.top = top_blob.top;
+					// Passed all heuristics!
 
-			// TODO sometime bottom is > top (?)
-			beacon.bottom = middle_blob.bottom;
+					beacon.type = beacon_type;
+					beacon.top = top_blob.top;
 
-			// Be inclusive and take whichever blob extends furthest left/right
-			beacon.left = std::min(top_blob.left, middle_blob.left);
-			beacon.right = std::max(top_blob.right, middle_blob.right);
+					// TODO sometime bottom is > top (?)
+					beacon.bottom = middle_blob.bottom;
 
-			printf("    PASSED THE VERTICAL TEST!\n");
+					// Be inclusive and take whichever blob extends furthest left/right
+					beacon.left = std::min(top_blob.left, middle_blob.left);
+					beacon.right = std::max(top_blob.right, middle_blob.right);
 
-			return true;
+					printf("    PASSED THE VERTICAL TEST!\n");
+
+					return true;
+			}
 		}
 	}
 
