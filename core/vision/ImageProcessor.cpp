@@ -724,9 +724,9 @@ void ImageProcessor::processFrame(){
   for (auto& pair : blobs) {
 	  Blob& blob = pair.second;
 	  // Filter out small blobs (pixel area downsampled)
-	  if (blob.area > 6) {
+//	  if (blob.area > ) {
 		  blob_list.push_back(blob);
-	  }
+//	  }
   }
   // Note that this sorts the list in descending order
   std::sort(blob_list.begin(), blob_list.end(), [] (const Blob& b1, const Blob& b2) {

@@ -87,7 +87,7 @@ class StateMachine(Task):
       else:
         self._tnodes[task] = TaskNode(task)
     return self._tnodes[task]
-  
+
   def setup(self): pass
 
   def _addTransition(self, *args):
@@ -139,7 +139,7 @@ class StateMachine(Task):
             newNode = True
           break
     self._node.processFrame()
-  
+
   def __repr__(self):
     if self.submachine:
       return self.submachine.__class__.__name__ + "<M>"
@@ -194,7 +194,7 @@ class NegationEvent(Event):
     if self.__class__ == NegationEvent or self.__class__.__name__ == "NegatedEventType":
       return "~" + repr(self.event)
     return self.__class__.__name__
- 
+
 def Negate(eventType):
   class NegatedEventType(NegationEvent):
     def __init__(self, **kwargs):
@@ -210,6 +210,7 @@ class SignalEvent(Event):
     value = self.source.outSignal() == self.signal
     if value:
       self.target.receiveSignal(self.signal)
+    return value
 
 class CompletionEvent(Event):
   def __init__(self, time=None):
@@ -337,7 +338,7 @@ class TaskNode(Node):
 class MachineNode(Node):
   def __init__(self, machine=None, **kwargs):
     super(MachineNode, self).__init__(**kwargs)
-    if machine: 
+    if machine:
       self.submachine = machine
     else:
       self.submachine = StateMachine(self)
