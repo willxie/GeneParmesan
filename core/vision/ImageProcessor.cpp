@@ -26,16 +26,18 @@ struct ImageProcessor::Blob {
 	bool used;
 };
 
+
+/**
+ *  type is of the following:
+ *
+ *	  WO_BEACON_BLUE_YELLOW
+ *	  WO_BEACON_YELLOW_BLUE
+ *	  WO_BEACON_BLUE_PINK
+ *	  WO_BEACON_PINK_BLUE
+ *	  WO_BEACON_PINK_YELLOW
+ *	  WO_BEACON_YELLOW_PINK
+ */
 struct ImageProcessor::Beacon {
-	/* type is of the following:
-	 *
-	 *	  WO_BEACON_BLUE_YELLOW
-	 *	  WO_BEACON_YELLOW_BLUE
-	 *	  WO_BEACON_BLUE_PINK
-	 *	  WO_BEACON_PINK_BLUE
-	 *	  WO_BEACON_PINK_YELLOW
-	 *	  WO_BEACON_YELLOW_PINK
-	 */
 	WorldObjectType type;
 
 	// Bounding box
@@ -143,9 +145,9 @@ void ImageProcessor::setCalibration(RobotCalibration calibration){
 }
 
 void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows) {
-	/* Compute Run Length Encoding */
-	// Process from left to right
-	// Process from top to bottom
+	// Compute Run Length Encoding
+
+	// Process from left to right, top to bottom
 	// NOTE: Skip rows because the image coming from getSegImg() is already downsampled
 	for (int y = 0; y < 240; y += 2) {
 		int yy = y / 2;
@@ -161,7 +163,6 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 			if (c != c_prev) {
 				// Get down sampled index
 				// Add new RunLength
-//				RunLength tempRunLength;
 				row.emplace_back();
 				RunLength& curRunLength = row.back();
 
@@ -170,9 +171,6 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 				curRunLength.x_right = xx;
 				curRunLength.color = c;
 				curRunLength.y = yy;
-//				printf("runlength: %p\n", &(rows[yy].back()));
-//				printf("runlength->parent: %p\n", rows[yy].back().parent);
-//				printf("row size: %d\n", rows[yy].size());
 			} else {
 				RunLength& curRunLength = row.back();
 				// Same color, just update x_right
@@ -182,23 +180,6 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 		}
 	}
 
-//	// Print out RLE rows
-//	int r = 0, row_width = 0, num_rows = 0;
-//	for (auto& row : rows) {
-//		printf("===> Row #%d <===\n", r);
-//		for (auto& runLength : row) {
-//			auto length = (runLength.x_right - runLength.x_left) + 1;
-//			printf("L:%dC:%d ", length, runLength.color);
-//			row_width += length;
-//		}
-//		printf("Row Width: %d\n", row_width);
-//		row_width = 0;
-//		num_rows++;
-//		printf("\n");
-//		r++;
-//	}
-//	printf("Num rows: %d\n", num_rows);
-
 	// Link parents
 	// TODO this is a very hacky way of doing it. I don't know why it didn't work for setting parents up top
 	// TODO actually, this might be the only way to do it since vector memory must be contiguous
@@ -206,36 +187,15 @@ void ImageProcessor::computeRunLength(std::vector<std::vector<RunLength> >& rows
 		for (auto& rl : row) {
 			RunLength* rp = &rl;
 			rp->parent = rp;
-//			printf("----------\n");
-//			printf("runlength: %p\n", rp);
-//			printf("runlength->parent: %p\n", rp->parent);
-//			printf("----------\n");
 		}
 	}
-
-
-//	for (int i = 0; i < rows.size(); ++i) {
-//		for (int j = 0; j < rows[i].size(); ++j) {
-//			RunLength& rp = rows[i][j];
-//			printf("----------\n");
-//			printf("runlength: %p\n", &rp);
-//			printf("runlength->parent: %p\n", rp.parent);
-//			printf("----------\n");
-//		}
-//	}
-//
 }
 
 // Given a candidate RunLength, find the uppermost parent (root of the tree)
 ImageProcessor::RunLength* ImageProcessor::findRunLengthGrandParent(RunLength* runLength) {
-//	printf("find 1\n");
 	if (runLength->parent == runLength) {
-//		printf("find 2\n");
-
 		return runLength->parent;
 	}
-//	printf("find 3\n");
-
 	return findRunLengthGrandParent(runLength->parent);
 }
 
@@ -243,19 +203,11 @@ void ImageProcessor::unionFind(std::vector<std::vector<RunLength> >& rows) {
 	// Skip first row
 	for (int y = 1; y < rows.size(); ++y) {
 		int x_top = 0;
-//		printf("y = %d\n", y);
 		// Center on the bottom row and try to find the parent for each RunLength
 		for (RunLength& curRunLength : rows[y]) {
 			while (true) {
-				//				printf("rows[%d - 1].size() = %d\n", y, rows[y - 1].size());
-				//				printf("x_top = %d\n", x_top);
 				RunLength& topRunLength = rows[y - 1][x_top];
-				// Check if the topRunLength is connected to curRunLength
-				//				if ((curRunLength.x_left <= topRunLength.x_left && topRunLength.x_left <= curRunLength.x_right) ||
-				//						(topRunLength.x_left <= curRunLength.x_left && curRunLength.x_left <= topRunLength.x_right)) {
 				// Check for color
-
-
 				if (curRunLength.color == topRunLength.color) {
 					// Is this the first adjacent run length with the same color
 					// encountered
@@ -279,7 +231,6 @@ void ImageProcessor::unionFind(std::vector<std::vector<RunLength> >& rows) {
 				}
 
 				x_top++;
-				//				}
 			}
 		}
 	}
@@ -291,38 +242,11 @@ void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, st
 	int row = 0;
 	for (auto& runLengthRow : rows) {
 		for (auto& runLength : runLengthRow) {
-			// Is this run length its own parent?
-//			if (runLength.parent == &runLength) {
-//				// Create a new blob and add it to the rest
-//				Blob blob;
-//				blob.area = runLength.x_right - runLength.x_left + 1;
-//				blob.top = blob.bottom = row;
-//				blob.left = runLength.x_left;
-//				blob.right = runLength.x_right;
-//				blob.runs = 0; // TODO remove
-//				blob.parent_x = runLength.x_left;
-//				blob.parent_y = row;
-//
-//
-//				blobs[&runLength] = blob;
-//			} else {
-
-				// This run length has a parent. Find it and update the
-				// associated blob
-//				RunLength *current = &runLength;
 				RunLength *parent = findRunLengthGrandParent(runLength.parent);
-
-//				= runLength.parent;
-//				while (current != parent) {
-//					current = parent;
-//					parent = parent->parent;
-//				}
-
 				// Retrieve the blob associated with this parent
 				std::unordered_map<RunLength*, Blob>::const_iterator got = blobs.find(parent);
 				if (got == blobs.end()) {
 					// Creating the blob and initialize
-
 					Blob blob;
 					blob.area = runLength.x_right - runLength.x_left + 1;
 					blob.top = blob.bottom = row;
@@ -333,11 +257,6 @@ void ImageProcessor::computeBlobs(std::vector<std::vector<RunLength> >& rows, st
 					blob.parent_y = row;
 					blob.used = false;
 					blobs[parent] = blob;
-
-//					printf("ERROR: PARENT NOT FOUND\n");
-//					printf("current run  : (%d, %d)\n", runLength.x_left, runLength.y);
-//					printf("target parent: (%d, %d)\n", parent->x_left, parent->y);
-//					while(1);
 				} else {
 					// Updating the blob
 					Blob& blob = blobs[parent];
@@ -533,7 +452,6 @@ double ImageProcessor::calculateDensity(Blob& blob) {
 bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 	std::vector<BallCandidate> candidate_list;
 
-//	printf("================== Goal ===================\n");
 	for (Blob& blob : blob_list) {
 		if (blob.used) {
 			continue;
@@ -542,7 +460,7 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 			continue;
 		}
 
-		const int area_threshold = 15;
+		const int area_threshold = 40;
 //		printf("area = %d\n", blob.area);
 		// Take out small blobs, the goal should be BIG relative to other blue things
 		if (blob.area < area_threshold) {
@@ -558,7 +476,7 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 		// Deviation from the ideal value
 		double density = std::abs(calculateDensity(blob) - density_ref);
 //		printf("delta density = %f\n", density);
-		// Ball density should be within +- 10% of ideal
+		// Density should be within +- 10% of ideal
 		if (!(density < density_tolerance)) {
 			continue;
 		}
@@ -613,10 +531,6 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 // Assume the blob_list is sorted in size
 bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 	std::vector<BallCandidate> ball_candidate_list;
-//	printf("================== Ball ===================\n");
-
-//	printf("\n");
-	// TODO tilt-angle-test
 	for (Blob& blob : blob_list) {
 		if (blob.used) {
 			continue;
@@ -625,6 +539,14 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 		if (blob.color != c_ORANGE) {
 			continue;
 		}
+
+		const int area_threshold = 5;
+//		printf("area = %d\n", blob.area);
+		// Take out small blobs, the goal should be BIG relative to other blue things
+		if (blob.area < area_threshold) {
+			continue;
+		}
+
 		// Check area to bounding box ratio, it should be close to Pi/4
 		const double density_tolerance = 0.10;
 		const double ratio_tolerance = 0.15;
@@ -703,21 +625,17 @@ void ImageProcessor::processFrame(){
 
   // Compute Run Lengths
   // Note that the dimension of rows is 120 x 80
-//  printf("Building RunLengths...\n");
   std::vector<std::vector<RunLength> > rows (120);
   computeRunLength(rows);
 
   // Link RunLengths into regions with the same parent
-//  printf("Union find...\n");
   unionFind(rows);
 
   // Detect Blobs
-//  printf("Building blogs...\n");
   std::unordered_map<RunLength*, Blob> blobs;
   computeBlobs(rows, blobs);
 
   // Sort blobs base on bounding box area
-//  printf("Sorting blobs\n");
   std::vector<Blob> blob_list;
   for (auto& pair : blobs) {
 	  Blob& blob = pair.second;
@@ -732,15 +650,7 @@ void ImageProcessor::processFrame(){
 	  return b1_area > b2_area;
   });
 
-//  // Print blob values
-//  printf("Blob sizes: \n");
-//  for (auto& b1 : blob_list) {
-//	  printf("A:%dC:%d  ", (b1.right - b1.left + 1) * (b1.bottom - b1.top + 1), b1.color);
-//  }
-//  printf("\n");
-
-//  printf("Done!\n\n");
-
+  // Find important objects!
   findBall(blob_list);
   findGoal(blob_list);
 
@@ -802,13 +712,6 @@ void ImageProcessor::processFrame(){
 void ImageProcessor::detectBall() {
   int imageX, imageY;
 
-//  // Try to find goal every frame
-//  WorldObject* goal = &vblocks_.world_object->objects_[WO_UNKNOWN_GOAL];
-//  WorldObject* circle = &vblocks_.world_object->objects_[WO_CENTER_CIRCLE];
-//  if (findGoal(goal->imageCenterX, goal->imageCenterY, circle->imageCenterY)) {
-//    goal->seen = true;
-//  }
-
   if(!findBall(imageX, imageY)) return; // function defined elsewhere that fills in imageX, imageY by reference
   WorldObject* ball = &vblocks_.world_object->objects_[WO_BALL];
 
@@ -823,6 +726,7 @@ void ImageProcessor::detectBall() {
   ball->seen = true;
 }
 
+// DEPRECATED
 bool ImageProcessor::findBall(int& imageX, int& imageY) {
 	int total = 0, totalX = 0, totalY = 0;
 	int c_temp;
@@ -847,12 +751,10 @@ bool ImageProcessor::findBall(int& imageX, int& imageY) {
 		imageY = totalY / total;
 	}
 
-//	printf("c_ORANGE = %d,\t c_temp = %d\n", (int)c_ORANGE, (int)c_temp);
-//	printf("total orange pixels: %d, \t %d, \t %d, \n", total, imageX, imageY);
-
 	return (total > 10);
 }
 
+// DEPRECATED
 bool ImageProcessor::findGoal(int& imageX, int& imageY, int& numBluePixels) {
 	int total = 0, totalX = 0, totalY = 0;
 	int c_temp;
@@ -878,8 +780,6 @@ bool ImageProcessor::findGoal(int& imageX, int& imageY, int& numBluePixels) {
 		imageX = totalX / total;
 		imageY = totalY / total;
 	}
-//	printf("c_ORANGE = %d,\t c_temp = %d\n", (int)c_ORANGE, (int)c_temp);
-//	printf("total blue pixels: %d, \t %d, \t %d, \n", total, imageX, imageY);
 
 	return (total > 400);
 }
