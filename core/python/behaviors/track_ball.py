@@ -87,6 +87,7 @@ class Playing(StateMachine):
     # State machine
     # One time standup
     self.trans(stand, C, scan_left)
+
     # Scan for ball
     self.trans(scan_left, C, scan_right)
     self.trans(scan_right, C, scan_left)
