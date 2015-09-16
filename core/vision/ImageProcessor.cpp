@@ -410,23 +410,24 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			int bottom_area = middle_blob.area;
 			double area_ratio = ((double)top_area)/bottom_area;
 			if (std::abs(area_ratio-1) > AREA_DIFFERENCE_LIMIT) {
-				printf("    FAILED AREA TEST!!!\n");
-				printf("    Area Ratio: %f\n", area_ratio);
-				printf("    AREA_DIFFERENCE_LIMIT: %f\n", AREA_DIFFERENCE_LIMIT);
-				printf("    Top blob @ (x=%d, y=%d, area=%d)\n",
-						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
-						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
-						top_area);
-				printf("    middle blob @ (x=%d, y=%d, area=%d)\n",
-						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
-						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
-						bottom_area);
+//				printf("    FAILED AREA TEST!!!\n");
+//				printf("    Area Ratio: %f\n", area_ratio);
+//				printf("    AREA_DIFFERENCE_LIMIT: %f\n", AREA_DIFFERENCE_LIMIT);
+//				printf("    Top blob @ (x=%d, y=%d, area=%d)\n",
+//						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+//						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+//						top_area);
+//				printf("    middle blob @ (x=%d, y=%d, area=%d)\n",
+//						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+//						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+//						bottom_area);
 				continue;
 			}
 
 //			// Aspect Ratio
 //			const float ASPECT_RATIO_DIFFERENCE_LIMIT = 1;
 			double aspect_ratio = calculateAspectRatio(top_blob) + calculateAspectRatio(middle_blob);
+
 //			if (std::abs(aspect_ratio - 2) > ASPECT_RATIO_DIFFERENCE_LIMIT) {
 //				printf("    FAILED ASPECT RATIO TEST!!!\n");
 //				printf("    Top blob @ (x=%d, y=%d, aspect_ratio=%f)\n",
@@ -605,7 +606,7 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 	goal->seen = true;
 	goal->fromTopCamera = camera_ == Camera::TOP;
 
-	printf("GOAL!\n");
+//	printf("GOAL!\n");
 
 	return true;
 }
@@ -683,7 +684,7 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 	ball_candidate_->centerX  = ball->imageCenterX;
 	ball_candidate_->centerY  = ball->imageCenterY;
 	ball_candidate_->radius  = ball->radius;
-	printf("BALL!\n");
+//	printf("BALL!\n");
 
 	return true;
 }
@@ -788,7 +789,7 @@ void ImageProcessor::processFrame(){
 	  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, world_heights[beacon.type]);
 	  object.visionDistance = cmatrix_.groundDistance(position);
 
-	  printf("Vision Distance: %f\n", object.visionDistance);
+//	  printf("Vision Distance: %f\n", object.visionDistance);
 
 	  object.visionBearing = cmatrix_.bearing(position);
 	  object.seen = true;
