@@ -446,85 +446,72 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			double bottom_density = calculateDensity(middle_blob);
 			double density_ratio = (double) top_density/bottom_density;
 			if (std::abs(density_ratio - 1) > DENSITY_DIFFERENCE_LIMIT) {
-				printf("    FAILED DENSITY RATIO TEST!!!\n");
-				printf("    Top blob @ (x=%d, y=%d, density=%f)\n",
-						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
-						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
-						top_density);
-				printf("    middle blob @ (x=%d, y=%d, density=%f)\n",
-						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
-						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
-						bottom_density);
-				printf("Density Ratio: %f\n", density_ratio);
+//				printf("    FAILED DENSITY RATIO TEST!!!\n");
+//				printf("    Top blob @ (x=%d, y=%d, density=%f)\n",
+//						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+//						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+//						top_density);
+//				printf("    middle blob @ (x=%d, y=%d, density=%f)\n",
+//						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+//						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+//						bottom_density);
+//				printf("Density Ratio: %f\n", density_ratio);
 				continue;
 			}
 
-			// Find a robot white blob right below this one
-			for (auto& bottom_blob : blobs) {
-				// Color not robot white?
-//				if (bottom_blob.color != c_ROBOT_WHITE) {
-//					continue;
-//				}
-//
-//				// The robot white blob is not under the bottom blob?
-//				int horizontal_diff = std::abs((middle_blob.left+middle_blob.right)/2 - (bottom_blob.left+bottom_blob.right)/2);
-//				int vertical_diff = std::abs(middle_blob.bottom - bottom_blob.top);
-//				if (horizontal_diff > 5 || vertical_diff > 5) {
-//					continue;
-//				}
+			// Check and see if the pixel below the middle blob is white
+			int white_pixel_x = (middle_blob.left + middle_blob.right) / 2 * 4;
+			int white_pixel_y = (middle_blob.bottom + (middle_blob.bottom - middle_blob.top)/2) * 2;
+			white_pixel_x = min(white_pixel_x, 320-1);
+			white_pixel_y = min(white_pixel_y, 240-1);
 
-//				// Check and see if the three blobs are the same size
-//				if (std::abs((double)top_blob.area/middle_blob.area - 1) > 0.3) {
-//					printf("        FAILED THE BLOB RATIO TEST!\n");
-//					printf("        RATIO = %d/%d = %f\n", top_blob.area, middle_blob.area, (double)top_blob.area/middle_blob.area);
-//					printf("        Top blob (x=%d, y=%d, area=%d)\n",
-//							(top_blob.left*4 + top_blob.right*4) / 2,
-//							(top_blob.top*2 + top_blob.bottom*2) / 2,
-//							top_blob.area);
-//					printf("        Middle blob (x=%d, y=%d, area=%d)\n",
-//							(middle_blob.left*4 + middle_blob.right*4) / 2,
-//							(middle_blob.top*2 + middle_blob.bottom*2) / 2,
-//							middle_blob.area);
-//					printf("        Bottom blob (x=%d, y=%d, area=%d)\n",
-//							(bottom_blob.left*4 + bottom_blob.right*4) / 2,
-//							(bottom_blob.top*2 + bottom_blob.bottom*2) / 2,
-//							bottom_blob.area);
-//					continue;
-//				}
-//
-//				printf("        BEACON DETECTED!\n");
-//				printf("        Top blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d)\n",
+			auto c = getSegImg()[white_pixel_y * iparams_.width + white_pixel_x];
+			if (c != c_WHITE && c != c_ROBOT_WHITE) {
+//				printf("        FAILED THE WHITE PIXEL TEST\n");
+//				printf("        (x=%d, y=%d)\n", white_pixel_x, white_pixel_y);
+//				printf("        Top blob @ (x=%d, y=%d, area=%d)\n",
 //						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
 //						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
-//						top_blob.top * 2, top_blob.bottom * 2, top_blob.left * 4, top_blob.right * 4,
-//						top_blob.area);
-//				printf("        Middle blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d)\n",
+//						top_area);
+//				printf("    middle blob @ (x=%d, y=%d, area=%d)\n",
 //						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
 //						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
-//						middle_blob.top * 2, middle_blob.bottom * 2, middle_blob.left * 4, middle_blob.right * 4,
-//						middle_blob.area);
-//
-//
-//				printf("        Beacon Type: %d\n", beacon_type);
-//				printf("        Area Ratio: %f\n", area_ratio);
-//				printf("        Aspect Ratio: %f\n", aspect_ratio);
-//				printf("        Density Ratio: %f\n", density_ratio);
-
-				// The top blob is right below the middle blob and they're the same
-				// color. Not only that; there's a robot white blob below the
-				// middle one. This is surely a beacon!
-				beacon.type = beacon_type;
-				beacon.top = top_blob.top;
-
-				// TODO sometime bottom is > top (?)
-				beacon.bottom = middle_blob.bottom;
-
-				// Be inclusive and take whichever blob extends furthest left/right
-				beacon.left = std::min(top_blob.left, middle_blob.left);
-				beacon.right = std::max(top_blob.right, middle_blob.right);
-
-				return true;
+//						bottom_area);
+				continue;
 			}
+
+//			printf("        BEACON DETECTED!\n");
+//			printf("        Top blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d)\n",
+//					((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+//					((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+//					top_blob.top * 2, top_blob.bottom * 2, top_blob.left * 4, top_blob.right * 4,
+//					top_blob.area);
+//			printf("        Middle blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d)\n",
+//					((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+//					((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+//					middle_blob.top * 2, middle_blob.bottom * 2, middle_blob.left * 4, middle_blob.right * 4,
+//					middle_blob.area);
+//
+//			printf("        Beacon Type: %d\n", beacon_type);
+//			printf("        Area Ratio: %f\n", area_ratio);
+//			printf("        Aspect Ratio: %f\n", aspect_ratio);
+//			printf("        Density Ratio: %f\n", density_ratio);
+//			printf("        White pixel color: (x=%d, y=%d, color=%d)\n", white_pixel_x, white_pixel_y, c);
+
+			// The top blob is right below the middle blob and they're the same
+			// color. Not only that; there's a robot white blob below the
+			// middle one. This is surely a beacon!
+			beacon.type = beacon_type;
+			beacon.top = top_blob.top;
+
+			// TODO sometime bottom is > top (?)
+			beacon.bottom = middle_blob.bottom;
+
+			// Be inclusive and take whichever blob extends furthest left/right
+			beacon.left = std::min(top_blob.left, middle_blob.left);
+			beacon.right = std::max(top_blob.right, middle_blob.right);
+
+			return true;
 		}
 	}
 
@@ -801,7 +788,7 @@ void ImageProcessor::processFrame(){
 	  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, world_heights[beacon.type]);
 	  object.visionDistance = cmatrix_.groundDistance(position);
 
-//	  printf("Vision Distance: %f\n", object.visionDistance);
+	  printf("Vision Distance: %f\n", object.visionDistance);
 
 	  object.visionBearing = cmatrix_.bearing(position);
 	  object.seen = true;
