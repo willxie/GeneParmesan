@@ -79,9 +79,12 @@ class ScanLeft(Node):
         continue
       beacon = memory.world_objects.getObjPtr(key)
       if beacon.seen:
-        self.beacon_list[key] = True
+        commands.setHeadPan(core.joint_values[core.HeadPan], 3)
+        self.beacon_list[key] = 2
+        # self.beacon_list["last"] = key
         print("BEACOOOOON")
-        self.postSignal("beacon")
+        self.postSignal("left")
+        break
 
     if self.getTime() > 3.0:
       self.finish()
@@ -93,7 +96,7 @@ class ScanRight(Node):
     self.beacon_list = beacon_list
 
   def run(self):
-    commands.setHeadPan(-1.0, 1)
+    commands.setHeadPan(-1.0, 2)
 
     for key, value in self.beacon_list.iteritems():
       # Skip ones we have already seen
@@ -101,13 +104,45 @@ class ScanRight(Node):
         continue
       beacon = memory.world_objects.getObjPtr(key)
       if beacon.seen:
-        self.beacon_list[key] = True
+        commands.setHeadPan(core.joint_values[core.HeadPan], 3)
+        self.beacon_list[key] = 2
+        # self.beacon_list["last"] = key
         print("BEACOOOOON")
-        self.postSignal("beacon")
+        self.postSignal("right")
+        break
 
+    print(self.getTime())
     if self.getTime() > 4.0:
       commands.setHeadPan(0, 2)
       self.finish()
+
+class NewBeacon(Node):
+  beacon_speech_list = { core.WO_BEACON_BLUE_YELLOW: "blue yellow",
+                         core.WO_BEACON_YELLOW_BLUE: "yellow blue",
+                         core.WO_BEACON_BLUE_PINK: "blue pink",
+                         core.WO_BEACON_PINK_BLUE: "pink blue",
+                         core.WO_BEACON_PINK_YELLOW: "pink yellow",
+                         core.WO_BEACON_YELLOW_PINK: "yellow pink",
+  }
+
+  def __init__(self, beacon_list):
+    super(NewBeacon, self).__init__()
+    self.beacon_list = beacon_list
+
+  def run(self):
+    if self.getTime() < 3.0:
+      # Search for most recently toggled beacon (value = 2)
+      for key, value in self.beacon_list.iteritems():
+        if value == 2:
+          # Set the beacon to permanently seen
+          self.beacon_list[key] = 1
+          beacon = memory.world_objects.getObjPtr(key)
+          distance = "{}".format(round(beacon.visionDistance, 1))
+          memory.speech.say(NewBeacon.beacon_speech_list[key] + " " + distance)
+          break
+    else:
+      self.postSignal(self.inSignal())
+
 
 # object.visionDistance
 
@@ -116,27 +151,21 @@ class Playing(StateMachine):
   """Forward Walking and Turn in Place"""
   def setup(self):
     memory.speech.say("Let's spot all the beacons!")
-    beacon_list = { core.WO_BEACON_BLUE_YELLOW: False,
-                    core.WO_BEACON_YELLOW_BLUE: False,
-                    core.WO_BEACON_BLUE_PINK: False,
-                    core.WO_BEACON_PINK_BLUE: False,
-                    core.WO_BEACON_PINK_YELLOW: False,
-                    core.WO_BEACON_YELLOW_PINK: False
+    beacon_list = { core.WO_BEACON_BLUE_YELLOW: 0,
+                    core.WO_BEACON_YELLOW_BLUE: 0,
+                    core.WO_BEACON_BLUE_PINK: 0,
+                    core.WO_BEACON_PINK_BLUE: 0,
+                    core.WO_BEACON_PINK_YELLOW: 0,
+                    core.WO_BEACON_YELLOW_PINK: 0,
+                    # "last": None
     }
-    # beacon_list = { corere.WO_BEACON_BLUE_YELLOW: "blue yellow",
-    #                 core.WO_BEACON_YELLOW_BLUE: "yellow blue",
-    #                 core.WO_BEACON_BLUE_PINK: "blue pink",
-    #                 core.WO_BEACON_PINK_BLUE: "pink blue",
-    #                 core.WO_BEACON_PINK_YELLOW: "pink yellow",
-    #                 core.WO_BEACON_YELLOW_PINK: "yellow pink"
-    # }
 
     # Movements
     stand = Stand()
     spin = Spin()
     scan_left  = ScanLeft(beacon_list)
     scan_right = ScanRight(beacon_list)
-    # new_beacon = NewBeacon()
+    new_beacon = NewBeacon(beacon_list)
 
     # States
     self.trans(stand, C, spin)
@@ -146,8 +175,8 @@ class Playing(StateMachine):
     self.trans(scan_left, C, scan_right)
     self.trans(scan_right, C, spin)
 
-    self.setFinish(None) # This ensures that the last node in trans is not the final node
-
     # When beacon is found
-    # self.trans(scan_left,  S("New beacon"), new_beacon, S("return left"), scan_left)
-    # self.trans(scan_right, S("New beacon"), new_beacon, S("return right"), scan_right)
+    self.trans(scan_left,  S("left"), new_beacon, S("left"), scan_left)
+    self.trans(scan_right, S("right"), new_beacon, S("right"), scan_right)
+
+    self.setFinish(None) # This ensures that the last node in trans is not the final node
