@@ -24,7 +24,7 @@ class ScanLeft(Node):
     ball = memory.world_objects.getObjPtr(core.WO_BALL)
     if ball.seen:
       commands.setHeadPan(core.joint_values[core.HeadPan], 3)
-      self.postSignal("ball")
+      self.postSignal("left")
 
     if self.getTime() > 5.0:
       self.resetTime()
@@ -36,7 +36,7 @@ class ScanRight(Node):
     ball = memory.world_objects.getObjPtr(core.WO_BALL)
     if ball.seen:
       commands.setHeadPan(core.joint_values[core.HeadPan], 3)
-      self.postSignal("ball")
+      self.postSignal("right")
 
     if self.getTime() > 3.0:
       self.resetTime()
@@ -69,7 +69,15 @@ class TrackBall(Node):
       self.reset()
 
     if self.getTime() > 3.0:
+      self.postSignal(self.inSignal())
+
+class Ready(Task):
+  def run(self):
+    commands.standStraight()
+    if self.getTime() > 3.0:
+      memory.speech.say("I am ready")
       self.finish()
+
 
 class Playing(StateMachine):
   """Forward Walking and Turn in Place"""
@@ -92,9 +100,10 @@ class Playing(StateMachine):
     self.trans(scan_left, C, scan_right)
     self.trans(scan_right, C, scan_left)
 
-    self.trans(scan_left, S("ball"), track)
-    self.trans(scan_right, S("ball"), track)
+    self.trans(scan_left, S("left"), track)
+    self.trans(scan_right, S("right"), track)
 
-    self.trans(track, C, scan_left)
+    self.trans(track, S("left"), scan_left)
+    self.trans(track, S("right"), scan_right)
 
     self.setFinish(None) # This ensures that the last node in trans is not the final node

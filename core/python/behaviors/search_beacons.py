@@ -130,7 +130,7 @@ class NewBeacon(Node):
     self.beacon_list = beacon_list
 
   def run(self):
-    if self.getTime() < 3.0:
+    if self.getTime() < 5.0:
       # Search for most recently toggled beacon (value = 2)
       for key, value in self.beacon_list.iteritems():
         if value == 2:
@@ -138,7 +138,7 @@ class NewBeacon(Node):
           self.beacon_list[key] = 1
           beacon = memory.world_objects.getObjPtr(key)
           distance = "{}".format(round(beacon.visionDistance, 1))
-          memory.speech.say(NewBeacon.beacon_speech_list[key] + " " + distance)
+          memory.speech.say(NewBeacon.beacon_speech_list[key] + " " + distance + " milimeters away.")
           break
     else:
       self.postSignal(self.inSignal())
