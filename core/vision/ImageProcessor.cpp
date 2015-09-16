@@ -425,7 +425,7 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			}
 
 			// Aspect Ratio
-			const float ASPECT_RATIO_DIFFERENCE_LIMIT = 0.5;
+			const float ASPECT_RATIO_DIFFERENCE_LIMIT = 1;
 			double aspect_ratio = calculateAspectRatio(top_blob) + calculateAspectRatio(middle_blob);
 			if (std::abs(aspect_ratio - 2) > ASPECT_RATIO_DIFFERENCE_LIMIT) {
 				printf("    FAILED ASPECT RATIO TEST!!!\n");
@@ -445,8 +445,19 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			double top_density = calculateDensity(top_blob);
 			double bottom_density = calculateDensity(middle_blob);
 			double density_ratio = (double) top_density/bottom_density;
-			if (std::abs(density_ratio - 1) > DENSITY_DIFFERENCE_LIMIT)
+			if (std::abs(density_ratio - 1) > DENSITY_DIFFERENCE_LIMIT) {
+				printf("    FAILED DENSITY RATIO TEST!!!\n");
+				printf("    Top blob @ (x=%d, y=%d, density=%f)\n",
+						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+						top_density);
+				printf("    middle blob @ (x=%d, y=%d, density=%f)\n",
+						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+						bottom_density);
+				printf("Density Ratio: %f\n", density_ratio);
 				continue;
+			}
 
 			// Find a robot white blob right below this one
 			for (auto& bottom_blob : blobs) {
