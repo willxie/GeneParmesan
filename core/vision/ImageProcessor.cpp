@@ -394,7 +394,7 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			// Horizontal Proximity
 			int horizontal_diff = std::abs((top_blob.left+top_blob.right)/2 - (middle_blob.left+middle_blob.right)/2);
 //			printf("    Horizontal Difference: %d\n", horizontal_diff);
-			if (horizontal_diff > 3) {
+			if (horizontal_diff > 5) {
 				continue;
 			}
 
@@ -607,7 +607,7 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 	goal->seen = true;
 	goal->fromTopCamera = camera_ == Camera::TOP;
 
-//	printf("GOAL!\n");
+	printf("GOAL!\n");
 
 	return true;
 }
@@ -685,7 +685,7 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 	ball_candidate_->centerX  = ball->imageCenterX;
 	ball_candidate_->centerY  = ball->imageCenterY;
 	ball_candidate_->radius  = ball->radius;
-//	printf("BALL!\n");
+	printf("BALL!\n");
 
 	return true;
 }
@@ -743,8 +743,8 @@ void ImageProcessor::processFrame(){
 
 //  printf("Done!\n\n");
 
-//  findBall(blob_list);
-//  findGoal(blob_list);
+  findBall(blob_list);
+  findGoal(blob_list);
 
   // Beacon types
   static map<WorldObjectType,vector<int>> beacon_configs = {
