@@ -393,8 +393,8 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 
 			// Horizontal Proximity
 			int horizontal_diff = std::abs((top_blob.left+top_blob.right)/2 - (middle_blob.left+middle_blob.right)/2);
-//			printf("    Horizontal Difference: %d\n", horizontal_diff);
-			if (horizontal_diff > 5) {
+			if (!((middle_blob.left <= top_blob.left && top_blob.left <= middle_blob.right) ||
+					(top_blob.left <= middle_blob.left && middle_blob.left <= top_blob.right))) {
 				continue;
 			}
 
