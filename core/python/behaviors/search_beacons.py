@@ -65,8 +65,23 @@ class Ready(Task):
 
 # Search
 class ScanLeft(Node):
+  # Save a reference of the beacon_list
+  def __init__(self, beacon_list):
+    super(ScanLeft, self).__init__()
+    self.beacon_list = beacon_list
+
   def run(self):
     commands.setHeadPan(1.0, 1)
+
+    for key, value in self.beacon_list.iteritems():
+      # Skip ones we have already seen
+      if value:
+        continue
+      beacon = memory.world_objects.getObjPtr(key)
+      if beacon.seen:
+        beacon_list[key] = True
+        self.postSignal("beacon")
+
     # ball = memory.world_objects.getObjPtr(core.WO_BALL)
     # if ball.seen:
     #   commands.setHeadPan(core.joint_values[core.HeadPan], 3)
@@ -75,45 +90,20 @@ class ScanLeft(Node):
       self.finish()
 
 class ScanRight(Node):
+  # Save a reference of the beacon_list
+  def __init__(self, beacon_list):
+    super(ScanRight, self).__init__()
+    self.beacon_list = beacon_list
+
   def run(self):
-    commands.setHeadPan(-1.0, 2)
+    commands.setHeadPan(-1.0, 1)
     # ball = memory.world_objects.getObjPtr(core.WO_BALL)
     # if ball.seen:
     #   commands.setHeadPan(core.joint_values[core.HeadPan], 3)
 
-    if self.getTime() > 5.0:
+    if self.getTime() > 4.0:
       commands.setHeadPan(0, 2)
       self.finish()
-
-# class NewBeacon(Node):
-#   def __init__(self, beacon_list):
-#     super(NewBeacon, self).__init__()
-#     self.beacon_list = beacon_list
-
-#   def run(self):
-#     # get distance
-#     beacon = memory.world_objects.getObjPtr(core.WO_BALL) ######
-#     if beacon.seen:
-
-
-# # Events
-# class NewBeaconDetetced(Event):
-#     beacon_list = [ core.WO_BEACON_BLUE_YELLOW,
-#                     core.WO_BEACON_YELLOW_BLUE,
-#                     core.WO_BEACON_BLUE_PINK,
-#                     core.WO_BEACON_PINK_BLUE,
-#                     core.WO_BEACON_PINK_YELLOW,
-#                     core.WO_BEACON_YELLOW_PINK]
-#     beacon_found_set = set()
-#     def ready(self):
-#         # Check if at least one beacon is found.
-#         for beacon in beacon_list:
-#             object = memory.world_objects.getObjPtr(beacon)
-#             if object.seen:
-#                 if beacon not in beacon_found_set:
-#                     beacon_found_set.add(beacon)
-#                     return True
-#         return False
 
 # Complex Tasks
 class Playing(StateMachine):
@@ -135,12 +125,11 @@ class Playing(StateMachine):
     #                 core.WO_BEACON_YELLOW_PINK: "yellow pink"
     # }
 
-
     # Movements
     stand = Stand()
     spin = Spin()
-    scan_left  = ScanLeft()
-    scan_right = ScanRight()
+    scan_left  = ScanLeft(beacon_list)
+    scan_right = ScanRight(beacon_list)
     # new_beacon = NewBeacon()
 
     # States
