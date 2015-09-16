@@ -427,11 +427,7 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 //			// Aspect Ratio
 //			const float ASPECT_RATIO_DIFFERENCE_LIMIT = 1;
 			double aspect_ratio = calculateAspectRatio(top_blob) + calculateAspectRatio(middle_blob);
-<<<<<<< HEAD
-			if (std::abs(aspect_ratio - 2) > ASPECT_RATIO_DIFFERENCE_LIMIT) {
-=======
 //			if (std::abs(aspect_ratio - 2) > ASPECT_RATIO_DIFFERENCE_LIMIT) {
->>>>>>> afa7c63ab5d8e48cb2bc14e9e4c584720f065817
 //				printf("    FAILED ASPECT RATIO TEST!!!\n");
 //				printf("    Top blob @ (x=%d, y=%d, aspect_ratio=%f)\n",
 //						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
@@ -441,13 +437,8 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 //						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
 //						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
 //						aspect_ratio);
-<<<<<<< HEAD
-				continue;
-			}
-=======
 //				continue;
 //			}
->>>>>>> afa7c63ab5d8e48cb2bc14e9e4c584720f065817
 
 			// Density
 			const double DENSITY_DIFFERENCE_LIMIT = 0.5;
