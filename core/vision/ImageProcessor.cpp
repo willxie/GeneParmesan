@@ -424,10 +424,14 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 				continue;
 			}
 
-			// Aspect Ratio
-			const float ASPECT_RATIO_DIFFERENCE_LIMIT = 0.5;
+//			// Aspect Ratio
+//			const float ASPECT_RATIO_DIFFERENCE_LIMIT = 1;
 			double aspect_ratio = calculateAspectRatio(top_blob) + calculateAspectRatio(middle_blob);
+<<<<<<< HEAD
 			if (std::abs(aspect_ratio - 2) > ASPECT_RATIO_DIFFERENCE_LIMIT) {
+=======
+//			if (std::abs(aspect_ratio - 2) > ASPECT_RATIO_DIFFERENCE_LIMIT) {
+>>>>>>> afa7c63ab5d8e48cb2bc14e9e4c584720f065817
 //				printf("    FAILED ASPECT RATIO TEST!!!\n");
 //				printf("    Top blob @ (x=%d, y=%d, aspect_ratio=%f)\n",
 //						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
@@ -437,16 +441,32 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 //						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
 //						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
 //						aspect_ratio);
+<<<<<<< HEAD
 				continue;
 			}
+=======
+//				continue;
+//			}
+>>>>>>> afa7c63ab5d8e48cb2bc14e9e4c584720f065817
 
 			// Density
 			const double DENSITY_DIFFERENCE_LIMIT = 0.5;
 			double top_density = calculateDensity(top_blob);
 			double bottom_density = calculateDensity(middle_blob);
 			double density_ratio = (double) top_density/bottom_density;
-			if (std::abs(density_ratio - 1) > DENSITY_DIFFERENCE_LIMIT)
+			if (std::abs(density_ratio - 1) > DENSITY_DIFFERENCE_LIMIT) {
+				printf("    FAILED DENSITY RATIO TEST!!!\n");
+				printf("    Top blob @ (x=%d, y=%d, density=%f)\n",
+						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+						top_density);
+				printf("    middle blob @ (x=%d, y=%d, density=%f)\n",
+						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+						bottom_density);
+				printf("Density Ratio: %f\n", density_ratio);
 				continue;
+			}
 
 			// Find a robot white blob right below this one
 			for (auto& bottom_blob : blobs) {
