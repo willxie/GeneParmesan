@@ -35,9 +35,9 @@ class Spin(Node):
   def run(self):
     commands.setWalkVelocity(0, 0, -0.25)
 
-    if self.getTime() > 5.0:
-      commands.stand()
     if self.getTime() > 6.0:
+      commands.stand()
+    if self.getTime() > 7.0:
       self.finish()
 
 class WalkForward(Node):
@@ -79,12 +79,9 @@ class ScanLeft(Node):
         continue
       beacon = memory.world_objects.getObjPtr(key)
       if beacon.seen:
-        beacon_list[key] = True
+        self.beacon_list[key] = True
+        print("BEACOOOOON")
         self.postSignal("beacon")
-
-    # ball = memory.world_objects.getObjPtr(core.WO_BALL)
-    # if ball.seen:
-    #   commands.setHeadPan(core.joint_values[core.HeadPan], 3)
 
     if self.getTime() > 3.0:
       self.finish()
@@ -97,13 +94,22 @@ class ScanRight(Node):
 
   def run(self):
     commands.setHeadPan(-1.0, 1)
-    # ball = memory.world_objects.getObjPtr(core.WO_BALL)
-    # if ball.seen:
-    #   commands.setHeadPan(core.joint_values[core.HeadPan], 3)
+
+    for key, value in self.beacon_list.iteritems():
+      # Skip ones we have already seen
+      if value:
+        continue
+      beacon = memory.world_objects.getObjPtr(key)
+      if beacon.seen:
+        self.beacon_list[key] = True
+        print("BEACOOOOON")
+        self.postSignal("beacon")
 
     if self.getTime() > 4.0:
       commands.setHeadPan(0, 2)
       self.finish()
+
+# object.visionDistance
 
 # Complex Tasks
 class Playing(StateMachine):

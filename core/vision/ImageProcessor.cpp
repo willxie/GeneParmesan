@@ -410,17 +410,17 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			int bottom_area = middle_blob.area;
 			double area_ratio = ((double)top_area)/bottom_area;
 			if (std::abs(area_ratio-1) > AREA_DIFFERENCE_LIMIT) {
-				printf("    FAILED AREA TEST!!!\n");
-				printf("    Area Ratio: %f\n", area_ratio);
-				printf("    AREA_DIFFERENCE_LIMIT: %f\n", AREA_DIFFERENCE_LIMIT);
-				printf("    Top blob @ (x=%d, y=%d, area=%d)\n",
-						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
-						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
-						top_area);
-				printf("    middle blob @ (x=%d, y=%d, area=%d)\n",
-						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
-						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
-						bottom_area);
+//				printf("    FAILED AREA TEST!!!\n");
+//				printf("    Area Ratio: %f\n", area_ratio);
+//				printf("    AREA_DIFFERENCE_LIMIT: %f\n", AREA_DIFFERENCE_LIMIT);
+//				printf("    Top blob @ (x=%d, y=%d, area=%d)\n",
+//						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+//						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+//						top_area);
+//				printf("    middle blob @ (x=%d, y=%d, area=%d)\n",
+//						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+//						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+//						bottom_area);
 				continue;
 			}
 
@@ -428,15 +428,15 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 			const float ASPECT_RATIO_DIFFERENCE_LIMIT = 0.5;
 			double aspect_ratio = calculateAspectRatio(top_blob) + calculateAspectRatio(middle_blob);
 			if (std::abs(aspect_ratio - 2) > ASPECT_RATIO_DIFFERENCE_LIMIT) {
-				printf("    FAILED ASPECT RATIO TEST!!!\n");
-				printf("    Top blob @ (x=%d, y=%d, aspect_ratio=%f)\n",
-						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
-						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
-						aspect_ratio);
-				printf("    middle blob @ (x=%d, y=%d, aspect_ratio=%f)\n",
-						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
-						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
-						aspect_ratio);
+//				printf("    FAILED ASPECT RATIO TEST!!!\n");
+//				printf("    Top blob @ (x=%d, y=%d, aspect_ratio=%f)\n",
+//						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+//						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+//						aspect_ratio);
+//				printf("    middle blob @ (x=%d, y=%d, aspect_ratio=%f)\n",
+//						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+//						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+//						aspect_ratio);
 				continue;
 			}
 
@@ -480,24 +480,24 @@ bool ImageProcessor::findBeacon(std::vector<Blob>& blobs, WorldObjectType beacon
 //							bottom_blob.area);
 //					continue;
 //				}
-
-				printf("        BEACON DETECTED!\n");
-				printf("        Top blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d)\n",
-						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
-						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
-						top_blob.top * 2, top_blob.bottom * 2, top_blob.left * 4, top_blob.right * 4,
-						top_blob.area);
-				printf("        Middle blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d)\n",
-						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
-						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
-						middle_blob.top * 2, middle_blob.bottom * 2, middle_blob.left * 4, middle_blob.right * 4,
-						middle_blob.area);
-
-
-				printf("        Beacon Type: %d\n", beacon_type);
-				printf("        Area Ratio: %f\n", area_ratio);
-				printf("        Aspect Ratio: %f\n", aspect_ratio);
-				printf("        Density Ratio: %f\n", density_ratio);
+//
+//				printf("        BEACON DETECTED!\n");
+//				printf("        Top blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d)\n",
+//						((top_blob.left * 4) + (top_blob.right * 4)) / 2,
+//						((top_blob.top * 2) + (top_blob.bottom * 2)) / 2,
+//						top_blob.top * 2, top_blob.bottom * 2, top_blob.left * 4, top_blob.right * 4,
+//						top_blob.area);
+//				printf("        Middle blob @ (x=%d, y=%d) (top=%d, bottom=%d, left=%d, right=%d) (area=%d)\n",
+//						((middle_blob.left * 4) + (middle_blob.right * 4)) / 2,
+//						((middle_blob.top * 2) + (middle_blob.bottom * 2)) / 2,
+//						middle_blob.top * 2, middle_blob.bottom * 2, middle_blob.left * 4, middle_blob.right * 4,
+//						middle_blob.area);
+//
+//
+//				printf("        Beacon Type: %d\n", beacon_type);
+//				printf("        Area Ratio: %f\n", area_ratio);
+//				printf("        Aspect Ratio: %f\n", aspect_ratio);
+//				printf("        Density Ratio: %f\n", density_ratio);
 
 				// The top blob is right below the middle blob and they're the same
 				// color. Not only that; there's a robot white blob below the
@@ -607,7 +607,7 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 	goal->seen = true;
 	goal->fromTopCamera = camera_ == Camera::TOP;
 
-	printf("GOAL!\n");
+//	printf("GOAL!\n");
 
 	return true;
 }
@@ -685,7 +685,7 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 	ball_candidate_->centerX  = ball->imageCenterX;
 	ball_candidate_->centerY  = ball->imageCenterY;
 	ball_candidate_->radius  = ball->radius;
-	printf("BALL!\n");
+//	printf("BALL!\n");
 
 	return true;
 }
@@ -790,7 +790,7 @@ void ImageProcessor::processFrame(){
 	  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, world_heights[beacon.type]);
 	  object.visionDistance = cmatrix_.groundDistance(position);
 
-	  printf("Vision Distance: %f\n", object.visionDistance);
+//	  printf("Vision Distance: %f\n", object.visionDistance);
 
 	  object.visionBearing = cmatrix_.bearing(position);
 	  object.seen = true;
