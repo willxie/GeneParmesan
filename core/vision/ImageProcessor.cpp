@@ -787,7 +787,8 @@ void ImageProcessor::processFrame(){
 //	  printf("(ImageCenterX=%d, ImageCenterY=%d)\n", object.imageCenterX, object.imageCenterY);
 	  auto position = cmatrix_.getWorldPosition(object.imageCenterX, object.imageCenterY, world_heights[beacon.type]);
 	  object.visionDistance = cmatrix_.groundDistance(position);
-
+	  // Linear model
+	  object.visionDistance = 0.811 * object.visionDistance + 100.14;
 	  printf("Vision Distance: %f\n", object.visionDistance);
 
 	  object.visionBearing = cmatrix_.bearing(position);
