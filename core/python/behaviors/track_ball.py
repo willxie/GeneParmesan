@@ -8,7 +8,7 @@ class Stand(Node):
   def run(self):
     commands.stand()
     if self.getTime() > 3.0:
-      memory.speech.say("Standing complete")
+#      memory.speech.say("Standing complete")
       self.finish()
 
 class Sit(Node):
@@ -57,7 +57,7 @@ class TrackBall(Node):
     if ball.seen:
       # memory.speech.say("I see the ball!")
       ball_x, ball_y = ball.imageCenterX, ball.imageCenterY
-      print('Ball seen at ({},{})'.format(ball_x, ball_y))
+#      print('Ball seen at ({},{})'.format(ball_x, ball_y))
 
       x_head_turn = -(ball_x-(320.0 / 2.0)) / 160.0
       # print('X HEAD TURN: {}'.format(x_head_turn))
