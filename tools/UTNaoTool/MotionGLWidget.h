@@ -26,12 +26,14 @@
 #include <memory/KickModuleBlock.h>
 #include <memory/KickParamBlock.h>
 
+
 #include <math/Vector2.h>
 #include <math/Vector3.h>
 #include <math/Spline3D.h>
 #include <common/RobotDimensions.h>
 #include <common/RobotInfo.h>
 #include <common/RingQueue.h>
+#include <common/Keyframe.h>
 
 #include <common/MassCalibration.h>
 
@@ -39,10 +41,10 @@
 
 class MotionSimulation;
 
-class MotionWidget : public QGLViewer {
+class MotionGLWidget : public QGLViewer {
 Q_OBJECT        // must include this if you use Qt signals/slots
  public:
-  MotionWidget(QWidget* parent);
+  MotionGLWidget(QWidget* parent);
 
   enum {  // Display modes
     BODYMODELMODE,
@@ -53,6 +55,7 @@ Q_OBJECT        // must include this if you use Qt signals/slots
     KICKMODE,
     KICKSIMMODE,
     GETUPSIMMODE,
+    KEYFRAMEMODE,
     NUM_MODES
   };
   
@@ -128,6 +131,8 @@ Q_OBJECT        // must include this if you use Qt signals/slots
   void drawBodyModel(BodyModelBlock* bodyModel, RGB color);
   void drawBodyModelFromJointCommands();
   void drawBodyModelFromJointValues();
+  void drawBodyModelFromKeyframe(Keyframe keyframe);
+  BodyModelBlock* getBodyModelFromJoints(array<float,NUM_JOINTS> joints);
   BodyModelBlock* getBodyModelFromJoints(vector<float> joints);
   BodyModelBlock* getBodyModelFromJoints(float *joints);
   void drawSteps();
@@ -184,6 +189,9 @@ Q_OBJECT        // must include this if you use Qt signals/slots
 
   void drawWithNames();
   qglviewer::Vec orig, dir, selectedPoint;
+  bool useKeyframes_;
+  Keyframe lastKeyframe_;
+  SupportBase base_;
 
  protected:
   void keyPressEvent(QKeyEvent *event);
@@ -194,7 +202,10 @@ Q_OBJECT        // must include this if you use Qt signals/slots
   void play();
   void pause();
   void modeChanged(QString);
-  
+public slots:
+  void drawSequence(const Keyframe& start, const Keyframe& finish, int cframe);
+  void drawKeyframe(const Keyframe& keyframe);
+  void setSupportBase(SupportBase base) { base_ = base; update(); }
 };
 
 	
