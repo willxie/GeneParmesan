@@ -2,7 +2,7 @@
 #include <math.h>
 #include <stdlib.h> // RAND_MAX
 
-#include "MotionWidget.h"
+#include "MotionGLWidget.h"
 
 #include <common/RobotInfo.h>
 #include <kinematics/ForwardKinematics.h>
@@ -16,10 +16,9 @@
 #include "LogWindow.h"
 
 #include <MotionCore.h>
-#include <motion/KickModule.h>
 
 
-MotionWidget::MotionWidget(QWidget* pa): QGLViewer(pa)  {
+MotionGLWidget::MotionGLWidget(QWidget* pa): QGLViewer(pa)  {
   parent = pa;
   walk_engine_ = NULL;
   body_model_ = NULL;
@@ -39,9 +38,11 @@ MotionWidget::MotionWidget(QWidget* pa): QGLViewer(pa)  {
   kick_engine_ = NULL;
   kick_module_ = NULL;
   prev_kick_state_ = KickState::NONE;
+  useKeyframes_ = false;
+  base_ = SupportBase::TorsoBase;
 }
 
-void MotionWidget::init() {
+void MotionGLWidget::init() {
   glEnable(GL_LIGHTING);
   //setSceneRadius(HALF_GRASS_Y/FACT);
   glEnable (GL_BLEND);
@@ -53,16 +54,16 @@ void MotionWidget::init() {
   //setAxisIsDrawn(true);
   setGridIsDrawn(true);
 
-  qglviewer::Vec c(83.4863,-27.091,28.2291);
+  qglviewer::Vec c(80,-80,30);
   qglviewer::Quaternion q(0.618458, 0.291192, 0.3236, 0.654217);
   camera()->setPosition(c);
   camera()->setOrientation(q);
   setSceneRadius(100.0);
 
-  setMode(WALKMODE);
+  setMode(KEYFRAMEMODE);
 }
 
-void MotionWidget::updateMemory(Memory* mem) {
+void MotionGLWidget::updateMemory(Memory* mem) {
   walk_engine_ = NULL;
   body_model_ = NULL;
   sensors_ = NULL;
@@ -82,7 +83,7 @@ void MotionWidget::updateMemory(Memory* mem) {
   mem->getBlockByName(sensors_,"processed_sensors",false);
   mem->getBlockByName(frame_,"frame_info",false);
   mem->getBlockByName(walk_engine_,"walk_engine",false);
-  mem->getBlockByName(joint_values_,"processed_joint_angles",false);
+  mem->getBlockByName(joint_values_,"vision_joint_angles",false);
   mem->getBlockByName(joint_commands_,"processed_joint_commands",false);
   mem->getBlockByName(walk_request_,"walk_request",false);
   mem->getBlockByName(walk_param_, "walk_param",false);
@@ -95,24 +96,25 @@ void MotionWidget::updateMemory(Memory* mem) {
 
   if (body_model_ == NULL)
     mem->getBlockByName(body_model_,"vision_body_model",false);
-  if (joint_values_ == NULL)
-    mem->getBlockByName(joint_values_,"vision_joint_angles",false);
   if (sensors_ == NULL)
     mem->getBlockByName(sensors_,"vision_sensors",false);
 
   memory_ = mem;
+  useKeyframes_ = false;
 }
 
 
-void MotionWidget::draw() {
+void MotionGLWidget::draw() {
 
   // Todd: draw stuff based on which options are on
   // we'll always want a body model
 
   // various versions of the stick figure based on different data
-  if (displayOptions[SHOWBODYMODEL]) drawBodyModel(body_model_, Colors::LightOrange);
-  if (displayOptions[SHOWJOINTVALUESMODEL]) drawBodyModelFromJointValues();
-  if (displayOptions[SHOWJOINTCOMMANDSMODEL]) drawBodyModelFromJointCommands();
+  //if (displayOptions[SHOWBODYMODEL]) drawBodyModel(body_model_, Colors::LightOrange);
+  //if (displayOptions[SHOWJOINTVALUESMODEL]) drawBodyModelFromJointValues();
+  //if (displayOptions[SHOWJOINTCOMMANDSMODEL]) drawBodyModelFromJointCommands();
+  if (useKeyframes_) drawBodyModelFromKeyframe(lastKeyframe_);
+  else drawBodyModelFromJointValues();
 
   // step placement
   if (displayOptions[SHOWSTEPS]) drawSteps();
@@ -172,7 +174,7 @@ void MotionWidget::draw() {
 }
 
 
-void MotionWidget::drawSwingFoot(){
+void MotionGLWidget::drawSwingFoot(){
   if (walk_engine_ == NULL) return;
 
   Pose3D swing_foot_ = globalToDrawingFrame(walk_engine_->swing_foot_);
@@ -180,7 +182,7 @@ void MotionWidget::drawSwingFoot(){
 }
 
 
-void MotionWidget::drawFoot(Pose3D &foot, RGB &color) {
+void MotionGLWidget::drawFoot(Pose3D &foot, RGB &color) {
   Vector3<float> foot_position_[4];
   float ankleForward = dimensions_.values_[RobotDimensions::footLength] - dimensions_.values_[RobotDimensions::backOfFootToAnkle];
   foot_position_[0]=Pose3D(foot).translate(ankleForward,0.5*dimensions_.values_[RobotDimensions::footWidth],0).translation;
@@ -191,7 +193,7 @@ void MotionWidget::drawFoot(Pose3D &foot, RGB &color) {
   robotGL_.drawFoot(color, foot_position_[0], foot_position_[1], foot_position_[2], foot_position_[3]);
 }
 
-void MotionWidget::drawZmp(RGB color, Vector2<float> val, float time){
+void MotionGLWidget::drawZmp(RGB color, Vector2<float> val, float time){
   Pose3D drawingZmp = globalToDrawingFrame(val);
 
   // set height based on time
@@ -204,7 +206,7 @@ void MotionWidget::drawZmp(RGB color, Vector2<float> val, float time){
 }
 
 
-void MotionWidget::drawPen(RGB color, Vector2<float> val, float time){
+void MotionGLWidget::drawPen(RGB color, Vector2<float> val, float time){
 
   Pose3D drawingPen = globalToDrawingFrame(val);
 
@@ -224,7 +226,7 @@ void MotionWidget::drawPen(RGB color, Vector2<float> val, float time){
   }
 }
 
-void MotionWidget::drawZmpTrajectory(RGB color, RingQueue<Vector2<float>, 100> zmp){
+void MotionGLWidget::drawZmpTrajectory(RGB color, RingQueue<Vector2<float>, 100> zmp){
 
   // draw points from current time to future
   // assume this is at 100 Hz, unless we know its sim
@@ -248,7 +250,7 @@ void MotionWidget::drawZmpTrajectory(RGB color, RingQueue<Vector2<float>, 100> z
 
 }
 
-void MotionWidget::drawSteps(){
+void MotionGLWidget::drawSteps(){
   if (walk_engine_ == NULL) return;
 
   // draw next steps, colored by foot. put time above them
@@ -257,7 +259,7 @@ void MotionWidget::drawSteps(){
   drawStep(walk_engine_->step_two_after_next_,false);
 }
 
-void MotionWidget::drawStep(WalkEngineBlock::Step s, bool draw_on_ground){
+void MotionGLWidget::drawStep(WalkEngineBlock::Step s, bool draw_on_ground){
 
   Pose3D step_foot_3d_ = globalToDrawingFrame(s.position_);
   Pose2D step_foot_;
@@ -301,7 +303,7 @@ void MotionWidget::drawStep(WalkEngineBlock::Step s, bool draw_on_ground){
 }
 
 
-void MotionWidget::drawTargetPoint(){
+void MotionGLWidget::drawTargetPoint(){
   if (walk_request_ == NULL) return;
 
   float radius = BALL_RADIUS;
@@ -315,7 +317,7 @@ void MotionWidget::drawTargetPoint(){
 
 }
 
-void MotionWidget::drawBodyModel(BodyModelBlock* bm_, RGB color){
+void MotionGLWidget::drawBodyModel(BodyModelBlock* bm_, RGB color){
   if (bm_==NULL) return;
 
   calculateStickFigure(bm_);
@@ -336,11 +338,15 @@ void MotionWidget::drawBodyModel(BodyModelBlock* bm_, RGB color){
   //saveStateToFile();
 }
 
-BodyModelBlock* MotionWidget::getBodyModelFromJoints(vector<float> joints){
+BodyModelBlock* MotionGLWidget::getBodyModelFromJoints(vector<float> joints){
   return getBodyModelFromJoints(&joints[0]);
 }
 
-BodyModelBlock* MotionWidget::getBodyModelFromJoints(float *joints){
+BodyModelBlock* MotionGLWidget::getBodyModelFromJoints(array<float,NUM_JOINTS> joints){
+  return getBodyModelFromJoints(&joints[0]);
+}
+
+BodyModelBlock* MotionGLWidget::getBodyModelFromJoints(float *joints){
   // create a new body model to fill in
   BodyModelBlock* new_body_model_ = new BodyModelBlock();
 
@@ -348,9 +354,17 @@ BodyModelBlock* MotionWidget::getBodyModelFromJoints(float *joints){
 
   // calculate a body model from the joint values
   ForwardKinematics::calculateRelativePose(joints, new_body_model_->rel_parts_, &dimensions_.values_[0]);
-  if(sensors_ == NULL) 
+  if(base_ == SupportBase::TorsoBase) {
+    base = new_body_model_->rel_parts_[BodyPart::torso];
+    base.translation.z -= 300;
+  }
+  else if(base_ == SupportBase::LeftFoot)
     base = ForwardKinematics::calculateVirtualBase(true, new_body_model_->rel_parts_);
-  else
+  else if(base_ == SupportBase::RightFoot)
+    base = ForwardKinematics::calculateVirtualBase(false, new_body_model_->rel_parts_);
+  else if(sensors_ == NULL)
+    base = ForwardKinematics::calculateVirtualBase(true, new_body_model_->rel_parts_);
+  else // SensorBase
     base = ForwardKinematics::calculateVirtualBase(sensors_->values_, new_body_model_->rel_parts_);
   ForwardKinematics::calculateAbsolutePose(base, new_body_model_->rel_parts_, new_body_model_->abs_parts_);
   ForwardKinematics::calculateCoM(new_body_model_->abs_parts_, new_body_model_->center_of_mass_,mass_calibration_);
@@ -358,7 +372,7 @@ BodyModelBlock* MotionWidget::getBodyModelFromJoints(float *joints){
   return new_body_model_;
 }
 
-void MotionWidget::drawBodyModelFromJointValues(){
+void MotionGLWidget::drawBodyModelFromJointValues(){
   if (joint_values_ == NULL) return;
 
   // create a new body model to fill in
@@ -370,7 +384,17 @@ void MotionWidget::drawBodyModelFromJointValues(){
   delete new_body_model_;
 }
 
-void MotionWidget::drawBodyModelFromJointCommands(){
+void MotionGLWidget::drawBodyModelFromKeyframe(Keyframe keyframe){
+  // create a new body model to fill in
+  BodyModelBlock* new_body_model_ = getBodyModelFromJoints(keyframe.joints);
+
+  // draw the stick figure
+  drawBodyModel(new_body_model_, Colors::LightOrange);
+
+  delete new_body_model_;
+}
+
+void MotionGLWidget::drawBodyModelFromJointCommands(){
   if (joint_commands_ == NULL) return;
 
   // create a new body model to fill in
@@ -381,7 +405,7 @@ void MotionWidget::drawBodyModelFromJointCommands(){
   delete new_body_model_;
 }
 
-void MotionWidget::drawKickFootTarget(){
+void MotionGLWidget::drawKickFootTarget(){
   if (sensors_ == NULL || body_model_ == NULL || joint_values_ == NULL) return;
   if (motion_sim_->use_com_kick_ && kick_module_ == NULL) return;
   else if(kick_engine_ == NULL) return;
@@ -415,7 +439,7 @@ void MotionWidget::drawKickFootTarget(){
   drawFoot(target_foot,Colors::Red);
 }
 
-void MotionWidget::drawKickSpline(bool names){
+void MotionGLWidget::drawKickSpline(bool names){
   bool recalc_splines = false;
   if (!kick_swing_spline_.isInitialized())
     recalc_splines = true;
@@ -428,10 +452,6 @@ void MotionWidget::drawKickSpline(bool names){
     if (kick_params_->params_.use_stance_spline)
       createKickSplines();
     else {
-      if (motion_sim_->core_->kick_->swing_spline_.isInitialized()) {
-        kick_swing_spline_ = motion_sim_->core_->kick_->swing_spline_;
-        calcKickSplinePoints();
-      }
     }
   }
   if (!kick_swing_spline_.isInitialized())
@@ -524,14 +544,14 @@ void MotionWidget::drawKickSpline(bool names){
   }
 }
 
-void MotionWidget::addTimeToSwingSplinePoint(Vector3<float> &pt, float time_frac) {
+void MotionGLWidget::addTimeToSwingSplinePoint(Vector3<float> &pt, float time_frac) {
   // set y as time
   //pt.y = 50 + 100 * time_frac;
   // set z as time
   pt.z = 150 * time_frac;
 }
 
-void MotionWidget::createKickSplines() {
+void MotionGLWidget::createKickSplines() {
   KickParameters *params_ = &(kick_params_->params_);
   if (params_->states[KickState::SPLINE].state_time <= 0)
     return;
@@ -542,7 +562,7 @@ void MotionWidget::createKickSplines() {
     calcKickSplinePoints();
 }
 
-void MotionWidget::calcKickSplinePoints() {
+void MotionGLWidget::calcKickSplinePoints() {
   int num_spline_iterp_points = 300;
   float stance_height = 175;
 
@@ -582,7 +602,7 @@ void MotionWidget::calcKickSplinePoints() {
   }
 }
 
-void MotionWidget::moveSplinePoint(int x, int y, int z) {
+void MotionGLWidget::moveSplinePoint(int x, int y, int z) {
   if (selectedName() == -1)
     return;
 
@@ -638,7 +658,7 @@ void MotionWidget::moveSplinePoint(int x, int y, int z) {
   createKickSplines();
 }
 
-void MotionWidget::removeSplinePoint() {
+void MotionGLWidget::removeSplinePoint() {
   if (selectedName() == -1)
     return;
   int ind;
@@ -667,7 +687,7 @@ void MotionWidget::removeSplinePoint() {
   createKickSplines();
 }
 
-  void MotionWidget::addSplinePoint() {
+  void MotionGLWidget::addSplinePoint() {
   if (selectedName() == -1)
     return;
 
@@ -704,13 +724,13 @@ void MotionWidget::removeSplinePoint() {
 }
 
 
-void MotionWidget::drawWithNames() {
+void MotionGLWidget::drawWithNames() {
   drawKickSpline(true);
 }
 
 //FOOTLENGTH 160
 //FOOTWIDTH  75
-void MotionWidget::calculateStickFigure(BodyModelBlock* bm_) {
+void MotionGLWidget::calculateStickFigure(BodyModelBlock* bm_) {
   if (bm_ == NULL) return;
   //std::cout <<  bm_->abs_parts_[BodyPart::left_ankle].translation.y << " "<<  bm_->abs_parts_[BodyPart::left_hip].translation.y << std::endl;
   stick_figure_[BodyFrame::origin]=bm_->abs_parts_[BodyPart::torso].translation;
@@ -761,17 +781,17 @@ void MotionWidget::calculateStickFigure(BodyModelBlock* bm_) {
   stick_figure_[BodyFrame::right_foot_rear_right]=Pose3D(foot).translate(-dimensions_.values_[RobotDimensions::backOfFootToAnkle],0.5*-dimensions_.values_[RobotDimensions::footWidth],0).translation;
 }
 
-QString MotionWidget::Vector2ToString(Vector2<float> val){
+QString MotionGLWidget::Vector2ToString(Vector2<float> val){
   QString ret = "(" + QString::number(val.x,'f',2) + ", " + QString::number(val.y,'f',2)+")";
   return ret;
 }
 
-QString MotionWidget::Vector3ToString(Vector3<float> val){
+QString MotionGLWidget::Vector3ToString(Vector3<float> val){
   QString ret = "(" + QString::number(val.x,'f',2) + ", " + QString::number(val.y,'f',2)+", "+QString::number(val.z,'f',2) + ")";
   return ret;
 }
 
-void MotionWidget::textZmpCom(){
+void MotionGLWidget::textZmpCom(){
   if (walk_engine_ == NULL) return;
   QFont serifFont( "Courier", 9);
   setFont(serifFont);
@@ -804,7 +824,7 @@ void MotionWidget::textZmpCom(){
   }
 }
 
-void MotionWidget::textSensors() {
+void MotionGLWidget::textSensors() {
   QFont serifFont( "Courier", 9);
   setFont(serifFont);
   glColor3f(0.7,0.7,0.7);
@@ -837,7 +857,7 @@ void MotionWidget::textSensors() {
 }
 
 
-void MotionWidget::textWalkRequest(){
+void MotionGLWidget::textWalkRequest(){
   if (walk_request_ == NULL) return;
   QFont serifFont( "Courier", 9);
   setFont(serifFont);
@@ -878,7 +898,7 @@ void MotionWidget::textWalkRequest(){
 }
 
 
-void MotionWidget::textKickRequest(){
+void MotionGLWidget::textKickRequest(){
   if (kick_request_ == NULL) return;
   QFont serifFont( "Courier", 9);
   setFont(serifFont);
@@ -904,7 +924,7 @@ void MotionWidget::textKickRequest(){
     renderText(x,y+=15,"Kick NOT running");
 }
 
-void MotionWidget::textKickInfo(){
+void MotionGLWidget::textKickInfo(){
   if (motion_sim_->use_com_kick_) {
     if (kick_module_ == NULL) return;
     QFont serifFont( "Courier", 9);
@@ -945,7 +965,7 @@ void MotionWidget::textKickInfo(){
 
 }
 
-void MotionWidget::textKickFeetTargets(){
+void MotionGLWidget::textKickFeetTargets(){
   if (motion_sim_->use_com_kick_) {
     // TODO
   } else {
@@ -967,7 +987,7 @@ void MotionWidget::textKickFeetTargets(){
   }
 }
 
-void MotionWidget::textSteps(){
+void MotionGLWidget::textSteps(){
   if (walk_engine_ == NULL) return;
   QFont serifFont( "Courier", 9);
   setFont(serifFont);
@@ -1023,7 +1043,7 @@ void MotionWidget::textSteps(){
 
 }
 
-void MotionWidget::textFeet() {
+void MotionGLWidget::textFeet() {
   if (walk_engine_ == NULL) return;
   QFont serifFont( "Courier", 9);
   setFont(serifFont);
@@ -1039,7 +1059,7 @@ void MotionWidget::textFeet() {
 
 }
 
-void MotionWidget::drawAbsFeetTargets(){
+void MotionGLWidget::drawAbsFeetTargets(){
   if (walk_engine_ == NULL || body_model_ == NULL) return;
 
   Pose3D left_foot = walk_engine_->abs_left_foot_;
@@ -1049,7 +1069,7 @@ void MotionWidget::drawAbsFeetTargets(){
   drawFoot(right_foot,Colors::Yellow);
 }
 
-void MotionWidget::textWalk() {
+void MotionGLWidget::textWalk() {
   if (walk_engine_ == NULL) return;
   QFont serifFont( "Courier", 9);
   setFont(serifFont);
@@ -1060,7 +1080,7 @@ void MotionWidget::textWalk() {
   renderText(x,y+=15,"Desired Step Size: "+Vector2ToString(walk_engine_->desired_step_size_.translation)+", "+QString::number(RAD_T_DEG*walk_engine_->desired_step_size_.rotation,'f',2));
 }
 
-void MotionWidget::textOdometry(){
+void MotionGLWidget::textOdometry(){
   if (odometry_ == NULL) return;
   QFont serifFont( "Courier", 9);
   setFont(serifFont);
@@ -1071,7 +1091,7 @@ void MotionWidget::textOdometry(){
   renderText(x,y+=15,"Odometry: "+Vector2ToString(odometry_->displacement.translation)+", "+QString::number(RAD_T_DEG*odometry_->displacement.rotation,'f',2));
 }
 
-void MotionWidget::textFrame() {
+void MotionGLWidget::textFrame() {
   if (frame_ == NULL) return;
   QFont serifFont( "Courier", 9);
   setFont(serifFont);
@@ -1080,13 +1100,13 @@ void MotionWidget::textFrame() {
   renderText(5,30,"Time: "+QString::number(frame_->seconds_since_start,'f',2));
 }
 
-void MotionWidget::setAllDisplayOptions(bool value) {
+void MotionGLWidget::setAllDisplayOptions(bool value) {
   for (int i=0; i<NUM_DISPLAY_OPTIONS; i++) {
     displayOptions[i]=value;
   }
 }
 
-void MotionWidget::setMode(int mode){
+void MotionGLWidget::setMode(int mode){
   currentMode = mode;
 
   if (currentMode == BODYMODELMODE){
@@ -1191,6 +1211,20 @@ void MotionWidget::setMode(int mode){
     displayOptions[SHOWKICKSPLINE] = true;
     //    displayOptions[SHOWABSFEETTARGETS] = true;
     emit modeChanged("Kick Simulation");
+  } else if (currentMode == KEYFRAMEMODE){
+    setAllDisplayOptions(false);
+    displayOptions[SHOWJOINTVALUESMODEL] = true;
+    displayOptions[SHOWJOINTCOMMANDSMODEL] = true;
+    displayOptions[SHOWSTEPS] = true;
+    displayOptions[SHOWZMPREF] = true;
+    displayOptions[SHOWCURRENTZMP] = true;
+    displayOptions[SHOWDESIREDZMP] = true;
+    displayOptions[SHOWSENSEDZMP] = true;
+    displayOptions[SHOWCURRENTPEN] = true;
+    displayOptions[SHOWDESIREDPEN] = true;
+    displayOptions[SHOWSWINGFOOT] = true;
+    displayOptions[SHOWTARGETPT] = true;
+
   } else {
     setAllDisplayOptions(false);
     emit modeChanged("Unknown Mode");
@@ -1199,7 +1233,7 @@ void MotionWidget::setMode(int mode){
 }
 
 
-void MotionWidget::keyPressEvent(QKeyEvent *event) {
+void MotionGLWidget::keyPressEvent(QKeyEvent *event) {
 
   /////////////////////////////////
   // keys that work in all modes
@@ -1522,7 +1556,7 @@ void MotionWidget::keyPressEvent(QKeyEvent *event) {
 
 
 
-void MotionWidget::initMotionSim(bool kick){
+void MotionGLWidget::initMotionSim(bool kick){
   std::cout << "initMotionSim" << std::endl << std::flush;
   if (motion_sim_ == NULL){
     motion_sim_ = new MotionSimulation(memory_);
@@ -1545,7 +1579,7 @@ void MotionWidget::initMotionSim(bool kick){
   //((UTMainWnd*)parent)->plotWnd_->setMemoryLog(simLog);
 }
 
-void MotionWidget::simulationStep(){
+void MotionGLWidget::simulationStep(){
   motion_sim_->processFrame();
 
   // overwrite our memory with sim memory
@@ -1566,7 +1600,7 @@ void MotionWidget::simulationStep(){
 
 
 // helper functions
-Pose3D MotionWidget::globalToDrawingFrame(Pose3D a){
+Pose3D MotionGLWidget::globalToDrawingFrame(Pose3D a){
 
   // convert from global to stance foot frame of reference
   a = a.globalToRelative(walk_engine_->global_frame_offset_);
@@ -1590,7 +1624,7 @@ Pose3D MotionWidget::globalToDrawingFrame(Pose3D a){
 
 }
 
-Pose3D MotionWidget::globalToDrawingFrame(Pose2D a){
+Pose3D MotionGLWidget::globalToDrawingFrame(Pose2D a){
   Pose3D b(0,0,0);
   b.translation.x = a.translation.x;
   b.translation.y = a.translation.y;
@@ -1598,10 +1632,25 @@ Pose3D MotionWidget::globalToDrawingFrame(Pose2D a){
   return globalToDrawingFrame(b);
 }
 
-Pose3D MotionWidget::globalToDrawingFrame(Vector2<float> a){
+Pose3D MotionGLWidget::globalToDrawingFrame(Vector2<float> a){
   Pose3D b(0,0,0);
   b.translation.x = a.x;
   b.translation.y = a.y;
   return globalToDrawingFrame(b);
 }
 
+void MotionGLWidget::drawSequence(const Keyframe& start, const Keyframe& finish, int cframe) {
+  float progress = (cframe + 1.0f) / finish.frames;
+  for(int i = 0; i < NUM_JOINTS; i++) {
+    auto delta = (finish.joints[i] - start.joints[i]) * progress;
+    lastKeyframe_.joints[i] = start.joints[i] + delta;
+  }
+  useKeyframes_ = true;
+  update();
+}
+
+void MotionGLWidget::drawKeyframe(const Keyframe& keyframe) {
+  lastKeyframe_ = keyframe;
+  useKeyframes_ = true;
+  update();
+}
