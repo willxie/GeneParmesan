@@ -608,7 +608,7 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 
 	// Linear model
 	ball->visionDistance = 0.811 * ball->visionDistance + 100.14;
-	printf("Ball distance: %f\n", ball->visionDistance);
+//	printf("Ball distance: %f\n", ball->visionDistance);
 
 	return true;
 }
@@ -712,7 +712,7 @@ void ImageProcessor::processFrame(){
 			  "i,%i) with calculated distance %2.4f", getName(WO_BEACON_YELLOW_BLUE), object.imageCenterX, object.imageCenterY, object.visionDistance);
   }
 
-  printf("\n");
+//  printf("\n");
 }
 
 // DEPRECATED
