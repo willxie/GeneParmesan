@@ -7,7 +7,7 @@ from state_machine import *
 class Stand(Node):
   def run(self):
     commands.stand()
-    if self.getTime() > 3.0:
+    if self.getTime() > 1.0:
 #      memory.speech.say("Standing complete")
       self.finish()
 
@@ -132,6 +132,7 @@ class Playing(StateMachine):
     off = Off()
     change_stiff = ChangeStiff()
     self.trans(stand, C, fake_sit, C, change_stiff)
+    # self.trans(stand, C, fake_sit, C, off)
 
 
     # self.setFinish(None) # This ensures that the last node in trans is not the final node
