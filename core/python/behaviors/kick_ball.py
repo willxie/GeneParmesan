@@ -66,15 +66,24 @@ class ScanRight(Node):
 class AlignGoal(Node):
   def run(self):
     # These are max values for Gene to adjust itself
-    vel_y_const = -0.50
-    vel_x_const = 0.25
-    vel_turn_const = 0.25
+    vel_y_gain = -0.50
+    vel_x_gain = 0.50
+    vel_turn_gain = 1.00
 
-    vel_y = 0 # This is the tangential velocity, fix it (try -0.50)
-    vel_x = vel_turn = 0
+    vel_y =  -0.50 # This is the tangential velocity, fix it (try -0.50)
+    vel_x = 0
+    vel_turn = 0
 
-    x_half = 360.0 / 2
-    y_half = 240.0 / 2
+    goal_aligned = False
+
+    # Target position of the ball in bottom camera
+    x_desired = 360.0 / 2
+    # y_desired = 240.0 / 2
+    y_desired = 200
+
+    # Goal centered threshold
+    goal_x_right_threshold = 360.0 / 2 + 30
+    goal_x_left_threshold  = 360.0 / 2 - 30
 
     ball = memory.world_objects.getObjPtr(core.WO_BALL)
     goal = memory.world_objects.getObjPtr(core.WO_OPP_GOAL)
@@ -82,32 +91,38 @@ class AlignGoal(Node):
     # Make sure that the ball is always at the same position relative to Gene
     if ball.seen:
       if ball.fromTopCamera:
-        memory.speech.say("Ball is in top frame")
+        memory.speech.say("The ball is in top frame")
       else:
         # We Calculate the deviation from the center of the frame
         # to adjust our rotation speed
         # Y determines vel_x to make sure that Gene
         # is always a fix distance from the ball
-        vel_x = vel_x_const * (y_half - ball.imageCenterY) / (y_half)
+        vel_x = vel_x_gain * (y_desired - ball.imageCenterY) / (y_desired)
         # X determines the vel_turn. Since we want to always turn
         # that's why there's an offset
-        # vel_turn = 0.25 - (x_half - ball.imageCenterX) / (x_half) * 0.25
-        vel_turn = vel_turn_const * (x_half - ball.imageCenterX) / (x_half)
-    else:
-      memory.speech.say("I don't see the ball")
+        # vel_turn = 0.25 - (x_desired - ball.imageCenterX) / (x_desired) * 0.25
+        vel_turn = vel_turn_gain * (x_desired - ball.imageCenterX) / (x_desired)
+    # else:
+    #   memory.speech.say("I don't see the ball")
 
-    # if goal.seen:
-    #   if not goal.fromTopCamera and goal:
-    #     memory.speech.say("Why is the goal in bottom frame?")
-    #   else:
-    #     # Align goal toward center of the frame
-    #     memory.speech.say("I see goal")
-    #     vel_y = vel_y * (x_half - goal.imageCenterY) / x_half
+    if goal.seen:
+      if not goal.fromTopCamera:
+        memory.speech.say("Why is the goal in bottom frame?")
+      else:
+        # Align goal toward center of the frame
+        memory.speech.say("I see goal")
+        # Slow down when the goal is closer to alignment (center of top frame)
+        vel_y = vel_y / 2
+        if (goal.imageCenterX < goal_x_right_threshold) and (goal.imageCenterX > goal_x_left_threshold):
+          goal_aligned = True
 
     # Exit condition
+    if goal_aligned:
+      self.finish()
 
     # commands.setWalkvelocity(0, -0.50, 0.25)
     commands.setWalkVelocity(vel_x, vel_y, vel_turn)
+    commands.setHeadTilt(-1.5)   # Tilt head up so we can see goal
 
     if self.getTime() > 50.0:
       self.finish()
@@ -158,7 +173,7 @@ class Set(Task):
 class Playing(StateMachine):
   """Forward Walking and Turn in Place"""
   def setup(self):
-    memory.speech.say("Let's circle'!")
+    memory.speech.say("Let's circle the ball!")
 
     # Movements
     stand = Stand()
