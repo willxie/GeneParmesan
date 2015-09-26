@@ -7,7 +7,7 @@ from state_machine import *
 class Stand(Node):
   def run(self):
     commands.stand()
-    if self.getTime() > 1.0:
+    if self.getTime() > 3.0:
 #      memory.speech.say("Standing complete")
       self.finish()
 
@@ -16,12 +16,6 @@ class Sit(Node):
     pose.Sit()
     if self.getTime() > 3.0:
       memory.speech.say("Sitting complete")
-      self.finish()
-
-class FakeSit(Node):
-  def run(self):
-    pose.Sit()
-    if self.getTime() > 0.1:
       self.finish()
 
 class ScanLeft(Node):
@@ -48,6 +42,76 @@ class ScanRight(Node):
       self.resetTime()
       self.finish()
 
+
+# class Kick(Node):
+#   def run(self):
+#     if self.getFrames() <= 3:
+#       memory.walk_request.noWalk()
+#       memory.kick_request.setFwdKick()
+#       if self.getFrames() > 10 and not memory.kick_request.kick_running_:
+#         self.finish()
+
+# # This is assuming that we can see the ball with bottom camera
+# class PreKick(Node):
+#   def run(self):
+#     ball = memory.world_objects.getObjPtr(core.WO_BALL)
+#     if ball.seen:
+
+#     else:
+#       memory.speech.say("I don't see the ball")
+
+
+
+# This is assuming that we can see the ball with bottom camera
+class AlignGoal(Node):
+  def run(self):
+    # These are max values for Gene to adjust itself
+    vel_y_const = -0.50
+    vel_x_const = 0.25
+    vel_turn_const = 0.25
+
+    vel_y = 0 # This is the tangential velocity, fix it (try -0.50)
+    vel_x = vel_turn = 0
+
+    x_half = 360.0 / 2
+    y_half = 240.0 / 2
+
+    ball = memory.world_objects.getObjPtr(core.WO_BALL)
+    goal = memory.world_objects.getObjPtr(core.WO_OPP_GOAL)
+
+    # Make sure that the ball is always at the same position relative to Gene
+    if ball.seen:
+      if ball.fromTopCamera:
+        memory.speech.say("Ball is in top frame")
+      else:
+        # We Calculate the deviation from the center of the frame
+        # to adjust our rotation speed
+        # Y determines vel_x to make sure that Gene
+        # is always a fix distance from the ball
+        vel_x = vel_x_const * (y_half - ball.imageCenterY) / (y_half)
+        # X determines the vel_turn. Since we want to always turn
+        # that's why there's an offset
+        # vel_turn = 0.25 - (x_half - ball.imageCenterX) / (x_half) * 0.25
+        vel_turn = vel_turn_const * (x_half - ball.imageCenterX) / (x_half)
+    else:
+      memory.speech.say("I don't see the ball")
+
+    # if goal.seen:
+    #   if not goal.fromTopCamera and goal:
+    #     memory.speech.say("Why is the goal in bottom frame?")
+    #   else:
+    #     # Align goal toward center of the frame
+    #     memory.speech.say("I see goal")
+    #     vel_y = vel_y * (x_half - goal.imageCenterY) / x_half
+
+    # Exit condition
+
+    # commands.setWalkvelocity(0, -0.50, 0.25)
+    commands.setWalkVelocity(vel_x, vel_y, vel_turn)
+
+    if self.getTime() > 50.0:
+      self.finish()
+
 class Off(Node):
   def run(self):
     commands.setStiffness(cfgstiff.Zero)
@@ -55,45 +119,9 @@ class Off(Node):
       memory.speech.say("Off")
       self.finish()
 
-
-
-class ChangeStiff(Node):
-  left_joint = 0.0
-  everything_else = 1.0
-  OneLegSoft = [0] * core.NUM_JOINTS
-  OneLegSoft[core.HeadYaw] = 1.0
-  OneLegSoft[core.HeadPitch] = 1.0
-  OneLegSoft[core.LShoulderPitch] = 0.1
-  OneLegSoft[core.LShoulderRoll] = 0.1
-  OneLegSoft[core.LElbowYaw] = 0.1
-  OneLegSoft[core.LElbowRoll] = 0.1
-  OneLegSoft[core.LHipYawPitch] = 0.0
-  OneLegSoft[core.LHipPitch] = 0.0
-  OneLegSoft[core.LHipRoll] = 0.0
-  OneLegSoft[core.LKneePitch] = 0.0
-  OneLegSoft[core.LAnklePitch] = 0.0
-  OneLegSoft[core.LAnkleRoll] = 0.0
-  OneLegSoft[core.RHipYawPitch] = 1.0
-  OneLegSoft[core.RHipPitch] = 1.0
-  OneLegSoft[core.RHipRoll] = 0.0
-  OneLegSoft[core.RKneePitch] = 1.0
-  OneLegSoft[core.RAnklePitch] = 1.0
-  OneLegSoft[core.RAnkleRoll] = 0.0
-  OneLegSoft[core.RShoulderPitch] = 0.1
-  OneLegSoft[core.RShoulderRoll] = 0.1
-  OneLegSoft[core.RElbowYaw] = 0.1
-  OneLegSoft[core.RElbowRoll] = 0.1
-
-  def run(self):
-    commands.setStiffness(ChangeStiff.OneLegSoft)
-    if self.getTime() > 20.0:
-      self.finish()
-
-
 class TrackBall(Node):
   def run(self):
     # Stand straight up because the head can't move if crouching
-
     ball = memory.world_objects.getObjPtr(core.WO_BALL)
     if ball.seen:
       # memory.speech.say("I see the ball!")
@@ -112,6 +140,7 @@ class TrackBall(Node):
     if self.getTime() > 3.0:
       self.postSignal(self.inSignal())
 
+# Button behaviors
 class Ready(Task):
   def run(self):
     commands.standStraight()
@@ -119,20 +148,23 @@ class Ready(Task):
       memory.speech.say("I am ready")
       self.finish()
 
+class Set(Task):
+  def run(self):
+    commands.stand()
+    if self.getTime() > 3.0:
+      memory.speech.say("I am ready")
+      self.finish()
 
 class Playing(StateMachine):
   """Forward Walking and Turn in Place"""
   def setup(self):
-    memory.speech.say("Let's calibrate'!")
+    memory.speech.say("Let's circle'!")
 
     # Movements
     stand = Stand()
     sit = Sit()
-    fake_sit = FakeSit()
     off = Off()
-    change_stiff = ChangeStiff()
-    self.trans(stand, C, fake_sit, C, change_stiff)
-    # self.trans(stand, C, fake_sit, C, off)
+    align = AlignGoal()
+    self.trans(stand, C, align, C, stand)
 
-
-    # self.setFinish(None) # This ensures that the last node in trans is not the final node
+    self.setFinish(None) # This ensures that the last node in trans is not the final node

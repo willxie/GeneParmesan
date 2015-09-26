@@ -598,7 +598,7 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 	ball->visionElevation = cmatrix_.elevation(p);
 	ball->visionDistance = cmatrix_.groundDistance(p);
 	ball->seen = true;
-	ball->fromTopCamera = camera_ == Camera::TOP;
+	ball->fromTopCamera = (camera_ == Camera::TOP);
 
 
 	// Fill in this non-sense extra stuff for drawing when running in core mode
@@ -614,7 +614,8 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 }
 
 void ImageProcessor::processFrame(){
-  if(vblocks_.robot_state->WO_SELF == WO_TEAM_COACH && camera_ == Camera::BOTTOM) return;
+  // TODO: what is WO_TEAM_COACH?
+//  if(vblocks_.robot_state->WO_SELF == WO_TEAM_COACH && camera_ == Camera::BOTTOM) return;
   visionLog(30, "Process Frame camera %i", camera_);
 
   updateTransform();
