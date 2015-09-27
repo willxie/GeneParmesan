@@ -17,6 +17,15 @@ class Sit(Node):
     if self.getTime() > 3.0:
       memory.speech.say("Sitting complete")
       self.finish()
+      
+class Spin(Node):
+  def run(self):
+    """Keep spinning until you see the ball in either camera"""
+    ball = memory.world_objects.getObjPtr(core.WO_BALL)
+    if ball.seen:
+      self.finish()
+      
+    commands.setWalkVelocity(0, 0, -0.25)
 
 class ScanLeft(Node):
   def run(self):
@@ -42,7 +51,7 @@ class ScanRight(Node):
       self.resetTime()
       self.finish()
       
-class GetToBall(Node):
+class PursueBall(Node):
     ball_distances = []
     def run(self):
         """Approach the ball enough to get it into the bottom camera
@@ -77,28 +86,28 @@ class GetToBall(Node):
         
         # Calculate forward velocity
         ball_distance = ball.visionDistance / 1000
-        print('Ball distance: {}'.format(ball_distance))
+#         print('Ball distance: {}'.format(ball_distance))
         ball_distance = min(ball_distance, DISTANCE_THRESHOLD)
         
         # Cache the ball distances
-        GetToBall.ball_distances = (GetToBall.ball_distances + [ball_distance])[-30:]
-        print('Ball distances: {}'.format(GetToBall.ball_distances))
-        slope = sum(GetToBall.ball_distances[-10:])/10 - sum(GetToBall.ball_distances[:10])/10
-        print('Slope: {} - {} = {}'.format(sum(GetToBall.ball_distances[-10:]) / 10,
-                                           sum(GetToBall.ball_distances[:10]) / 10,
-                                           slope))
-        print('Input: {}'.format(1 / slope if slope else 1))
+        PursueBall.ball_distances = (PursueBall.ball_distances + [ball_distance])[-30:]
+#         print('Ball distances: {}'.format(PursueBall.ball_distances))
+        slope = sum(PursueBall.ball_distances[-10:])/10 - sum(PursueBall.ball_distances[:10])/10
+#         print('Slope: {} - {} = {}'.format(sum(PursueBall.ball_distances[-10:]) / 10,
+#                                            sum(PursueBall.ball_distances[:10]) / 10,
+#                                            slope))
+#         print('Input: {}'.format(1 / slope if slope else 1))
         
         
         # Get the maximum velocity to be 1
         forward_vel = ball_distance * DISTANCE_CONSTANT
         forward_vel *= MAX_FORWARD_VELOCITY
         forward_vel = max(MIN_FORWARD_VELOCITY, forward_vel)
-        print('forward velocity: {}'.format(forward_vel))
+#         print('forward velocity: {}'.format(forward_vel))
         
         # Calculate sideways velocity
         angular_vel = -(ball_x-160.0) / 160.0 * MAX_ANGULAR_VELOCITY
-        print('Sideways Amount: {}'.format(angular_vel))
+#         print('Sideways Amount: {}'.format(angular_vel))
         
         commands.setWalkVelocity(forward_vel, 0, angular_vel)
 
@@ -135,6 +144,7 @@ class AlignGoal(Node):
     if ball.seen:
       if ball.fromTopCamera:
         memory.speech.say("The ball is in top frame")
+	vel_turn = 0.30
       else:
         # We Calculate the deviation from the center of the frame
         # to adjust our rotation speed
@@ -300,12 +310,13 @@ class Playing(StateMachine):
 
     # Movements
     stand = Stand()
+    spin = Spin()
     sit = Sit()
     off = Off()
-    get_to_ball = GetToBall()
+    pursue_ball = PursueBall()
     align = AlignGoal()
     pre_kick = PreKick()
     kick = Kick()
-    self.trans(stand, C, get_to_ball, C, align, C, pre_kick, C, kick, C, sit)
+    self.trans(stand, C, spin, C, pursue_ball, C, align, C, pre_kick, C, kick, C, sit)
 
     self.setFinish(None) # This ensures that the last node in trans is not the final node
