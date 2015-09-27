@@ -1,7 +1,7 @@
 ---
 keyframes:
   - name: Stand
-    frames: 50
+    frames: 5
     joints:
       HeadYaw: -1.76023547848237
       HeadPitch: -21.7947494433699
@@ -25,8 +25,8 @@ keyframes:
       RShoulderRoll: 7.20952421613692
       RElbowYaw: -0.96440905042746
       RElbowRoll: -2.55126690029652
-  - name: Keyframe 6
-    frames: 50
+  - name: Half lean
+    frames: 200
     joints:
       HeadYaw: -0.178185975067293
       HeadPitch: -21.1795013708608
@@ -51,6 +51,31 @@ keyframes:
       RElbowYaw: -1.05229992466718
       RElbowRoll: -2.72704864877597
   - name: Finished lean
+    frames: 200
+    joints:
+      HeadYaw: -0.178185975067293
+      HeadPitch: -21.2673939526478
+      LHipYawPitch: 0.178185975067293
+      LHipRoll: -16.3502707597166
+      LHipPitch: -32.9569878020105
+      LKneePitch: 65.9164003211764
+      LAnklePitch: -35.3348771804154
+      LAnkleRoll: 9.1383286566135
+      RHipYawPitch: 0.178185975067293
+      RHipRoll: 20.2174965470211
+      RHipPitch: -28.3914298135855
+      RKneePitch: 50.8038213107686
+      RAnklePitch: -25.2225225670231
+      RAnkleRoll: -20.1247972196057
+      LShoulderPitch: -90.6139682089706
+      LShoulderRoll: 7.81996554301764
+      LElbowYaw: -0.881326629363425
+      LElbowRoll: -2.37067669864139
+      RShoulderPitch: -90.8824356244871
+      RShoulderRoll: 6.33060181336134
+      RElbowYaw: -0.96440905042746
+      RElbowRoll: -2.72704864877597
+  - name: Finished lean 2
     frames: 100
     joints:
       HeadYaw: -0.178185975067293
@@ -76,7 +101,7 @@ keyframes:
       RElbowYaw: -0.96440905042746
       RElbowRoll: -2.72704864877597
   - name: Begin lift
-    frames: 100
+    frames: 20
     joints:
       HeadYaw: -1.49656274904149
       HeadPitch: -23.0252233902733
@@ -86,11 +111,11 @@ keyframes:
       LKneePitch: 67.9379040890684
       LAnklePitch: -35.9501269604718
       LAnkleRoll: 7.02893401448178
-      RHipYawPitch: -0.0854866476518796
+      RHipYawPitch: 0.178185975067293
       RHipRoll: 20.0417147985417
-      RHipPitch: -24.8757675232399
-      RKneePitch: 50.1006943168508
-      RAnklePitch: -23.4646914218503
+      RHipPitch: -28.3914298135855
+      RKneePitch: 50.8038213107686
+      RAnklePitch: -25.2225225670231
       RAnkleRoll: -21.4099861044028
       LShoulderPitch: -90.6139682089706
       LShoulderRoll: 7.11682531560833
@@ -101,7 +126,7 @@ keyframes:
       RElbowYaw: -0.876518176187736
       RElbowRoll: -2.55126690029652
   - name: Full lift
-    frames: 100
+    frames: 20
     joints:
       HeadYaw: -1.49656274904149
       HeadPitch: -23.0252233902733
@@ -111,47 +136,22 @@ keyframes:
       LKneePitch: 91.1413202845981
       LAnklePitch: -49.5733490714125
       LAnkleRoll: 7.02893401448178
-      RHipYawPitch: -0.0854866476518796
-      RHipRoll: 20.1296056727814
-      RHipPitch: -24.8757675232399
-      RKneePitch: 50.1006943168508
-      RAnklePitch: -23.6404731703297
-      RAnkleRoll: -20.7947499847248
+      RHipYawPitch: 0.178185975067293
+      RHipRoll: 20.0417147985417
+      RHipPitch: -28.3914298135855
+      RKneePitch: 50.8038213107686
+      RAnklePitch: -25.2225225670231
+      RAnkleRoll: -21.4099861044028
       LShoulderPitch: -90.6139682089706
       LShoulderRoll: 7.11682531560833
       LElbowYaw: -0.969217503603149
       LElbowRoll: -2.54645844712083
       RShoulderPitch: -90.9703401591052
-      RShoulderRoll: 6.4185063479794
-      RElbowYaw: -0.876518176187736
-      RElbowRoll: -2.55126690029652
-  - name: Hold
-    frames: 100
-    joints:
-      HeadYaw: -1.49656274904149
-      HeadPitch: -23.0252233902733
-      LHipYawPitch: -0.0854866476518796
-      LHipRoll: -15.9108027281396
-      LHipPitch: -38.1426040236676
-      LKneePitch: 91.1413202845981
-      LAnklePitch: -49.5733490714125
-      LAnkleRoll: 7.02893401448178
-      RHipYawPitch: -0.0854866476518796
-      RHipRoll: 20.1296056727814
-      RHipPitch: -24.7878766490002
-      RKneePitch: 50.1006943168508
-      RAnklePitch: -23.6404731703297
-      RAnkleRoll: -20.7947499847248
-      LShoulderPitch: -90.6139682089706
-      LShoulderRoll: 7.11682531560833
-      LElbowYaw: -0.969217503603149
-      LElbowRoll: -2.54645844712083
-      RShoulderPitch: -90.9703401591052
-      RShoulderRoll: 6.4185063479794
+      RShoulderRoll: 6.33060181336134
       RElbowYaw: -0.876518176187736
       RElbowRoll: -2.55126690029652
   - name: kick back
-    frames: 50
+    frames: 20
     joints:
       HeadYaw: -1.49656274904149
       HeadPitch: -23.0252233902733
@@ -176,7 +176,7 @@ keyframes:
       RElbowYaw: -0.876518176187736
       RElbowRoll: -2.55126690029652
   - name: kick center
-    frames: 3
+    frames: 2
     joints:
       HeadYaw: -1.49656274904149
       HeadPitch: -23.0252233902733
@@ -251,7 +251,7 @@ keyframes:
       RElbowYaw: -0.876518176187736
       RElbowRoll: -2.55126690029652
   - name: Kick far
-    frames: 3
+    frames: 2
     joints:
       HeadYaw: -1.49656274904149
       HeadPitch: -23.0252233902733
@@ -300,4 +300,29 @@ keyframes:
       RShoulderRoll: 7.20952421613692
       RElbowYaw: -0.96440905042746
       RElbowRoll: -2.55126690029652
+  - name: Sit
+    frames: 30
+    joints:
+      HeadYaw: -1.76023537176067
+      HeadPitch: -20.8279378739019
+      LHipYawPitch: -4.65585308925255
+      LHipRoll: 0.173377521891604
+      LHipPitch: -46.93177340991
+      LKneePitch: 121.991317671065
+      LAnklePitch: -69.2610961464074
+      LAnkleRoll: 0.261268396131328
+      RHipYawPitch: -4.65585308925255
+      RHipRoll: -0.0854866476518796
+      RHipPitch: -47.5518316431421
+      RKneePitch: 121.644548966903
+      RAnklePitch: -68.2894675860273
+      RAnkleRoll: 0.00240422658784449
+      LShoulderPitch: -91.1413202845981
+      LShoulderRoll: 1.8433177928247
+      LElbowYaw: -0.529749472026189
+      LElbowRoll: -2.01909954130415
+      RShoulderPitch: -90.5308789577174
+      RShoulderRoll: 2.8149395230157
+      RElbowYaw: -0.349159270371052
+      RElbowRoll: -1.23289012632232
 ...

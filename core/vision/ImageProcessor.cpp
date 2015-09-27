@@ -547,8 +547,8 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 		}
 
 		// Check area to bounding box ratio, it should be close to Pi/4
-		const double density_tolerance = 0.30;
-		const double ratio_tolerance = 0.30;
+		const double density_tolerance = 0.20;
+		const double ratio_tolerance = 0.20;
 
 		const double density_ref = 3.14159265359 / 4;
 		// Deviation from the ideal value

@@ -42,26 +42,6 @@ class ScanRight(Node):
       self.resetTime()
       self.finish()
 
-
-# class Kick(Node):
-#   def run(self):
-#     if self.getFrames() <= 3:
-#       memory.walk_request.noWalk()
-#       memory.kick_request.setFwdKick()
-#       if self.getFrames() > 10 and not memory.kick_request.kick_running_:
-#         self.finish()
-
-# # This is assuming that we can see the ball with bottom camera
-# class PreKick(Node):
-#   def run(self):
-#     ball = memory.world_objects.getObjPtr(core.WO_BALL)
-#     if ball.seen:
-
-#     else:
-#       memory.speech.say("I don't see the ball")
-
-
-
 # This is assuming that we can see the ball with bottom camera
 class AlignGoal(Node):
   def run(self):
@@ -77,9 +57,12 @@ class AlignGoal(Node):
     goal_aligned = False
 
     # Target position of the ball in bottom camera
-    x_desired = 360.0 / 2
-    # y_desired = 240.0 / 2
-    y_desired = 200
+    # # x_desired = 360.0 / 2
+    # x_desired = 120 # Ball near left foot
+    # # y_desired = 240.0 / 2
+    # y_desired = 200 # Ball near the bottom of the frame when looking up
+    x_desired = 117.0
+    y_desired = 183.0
 
     # Goal centered threshold
     goal_x_right_threshold = 360.0 / 2 + 30
@@ -102,8 +85,6 @@ class AlignGoal(Node):
         # that's why there's an offset
         # vel_turn = 0.25 - (x_desired - ball.imageCenterX) / (x_desired) * 0.25
         vel_turn = vel_turn_gain * (x_desired - ball.imageCenterX) / (x_desired)
-    # else:
-    #   memory.speech.say("I don't see the ball")
 
     if goal.seen:
       if not goal.fromTopCamera:
@@ -122,10 +103,89 @@ class AlignGoal(Node):
 
     # commands.setWalkvelocity(0, -0.50, 0.25)
     commands.setWalkVelocity(vel_x, vel_y, vel_turn)
-    commands.setHeadTilt(-1.5)   # Tilt head up so we can see goal
+    commands.setHeadTilt(-10)   # Tilt head up so we can see goal (default = -22)
 
-    if self.getTime() > 50.0:
+
+# This is assuming that we can see the ball with bottom camera
+# Align ball to left foot and prepare to kick
+class PreKick(Node):
+  def run(self):
+    if self.getTime() < 1.0:
+      memory.speech.say("Get in position!")
+
+    # These are max values for Gene to adjust itself
+    vel_y_gain = 0.5
+    vel_x_gain = 0.5
+    vel_turn_gain = 1.00
+
+    vel_y =  0
+    vel_x = 0
+    vel_turn = 0
+
+    # These values are used so that the velocity doesn't drop to super low
+    vel_y_min = 0.05
+    vel_x_min = 0.05
+
+    ball_aligned = False
+
+    # Target position of the ball in bottom camera
+    x_desired = 117.0
+    y_desired = 183.0
+
+    # Ball centered threshold
+    ball_tolerance = 10
+    ball_x_left_threshold    = x_desired - ball_tolerance
+    ball_x_right_threshold   = x_desired + ball_tolerance
+    ball_y_top_threshold     = y_desired - ball_tolerance
+    ball_y_bottom_threshold  = y_desired + ball_tolerance
+
+    ball = memory.world_objects.getObjPtr(core.WO_BALL)
+
+    # Make sure that the ball is always at the same position relative to Gene
+    if ball.seen:
+      if ball.fromTopCamera:
+        # TODO maybe walk foward?
+        memory.speech.say("The ball is in top frame")
+      else:
+        # Similar to AlignGoal, we want to move until the ball is in front of left foot
+        # The 0.05 ensures that min vel is 5% of the gain
+        global_offset = 0.15
+        vel_x = vel_x_gain * ((y_desired - ball.imageCenterY) / (240 / 2))
+        vel_y = vel_y_gain * ((x_desired - ball.imageCenterX) / (320 / 2))
+        if abs(vel_x) < global_offset:
+          if vel_x > 0:
+            vel_x = global_offset
+          if vel_x < 0:
+            vel_x = -global_offset
+        if abs(vel_y) < global_offset:
+          if vel_y > 0:
+            vel_y = global_offset
+          if vel_y < 0:
+            vel_y = -global_offset
+
+
+        print (vel_x)
+# (ball.imageCenterY < ball_y_bottom_threshold) and
+        if ((ball.imageCenterY > ball_y_top_threshold) and
+            (ball.imageCenterX < ball_x_right_threshold) and (ball.imageCenterX > ball_x_left_threshold)):
+          print ball.imageCenterX, ball.imageCenterY
+          ball_aligned = True
+
+    # Exit condition
+    if ball_aligned:
       self.finish()
+
+    commands.setWalkVelocity(vel_x, vel_y, vel_turn)
+
+class Kick(Node):
+  def run(self):
+    if self.getTime() < 1.0:
+      memory.speech.say("Kick!")
+    if self.getFrames() <= 3:
+      memory.walk_request.noWalk()
+      memory.kick_request.setFwdKick()
+      if self.getFrames() > 10 and not memory.kick_request.kick_running_:
+        self.finish()
 
 class Off(Node):
   def run(self):
@@ -173,13 +233,15 @@ class Set(Task):
 class Playing(StateMachine):
   """Forward Walking and Turn in Place"""
   def setup(self):
-    memory.speech.say("Let's circle the ball!")
+    memory.speech.say("Let's score!")
 
     # Movements
     stand = Stand()
     sit = Sit()
     off = Off()
     align = AlignGoal()
-    self.trans(stand, C, align, C, stand)
+    pre_kick = PreKick()
+    kick = Kick()
+    self.trans(stand, C, align, C, pre_kick, C, kick, C, sit)
 
     self.setFinish(None) # This ensures that the last node in trans is not the final node
