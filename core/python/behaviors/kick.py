@@ -29,4 +29,5 @@ class Playing(StateMachine):
         self.finish()
 
   def setup(self):
+    memory.speech.say("Let's kick ball")
     self.trans(self.Stand(), C, self.Kick(), C, self.Stand(), C, pose.Sit(), C, self.Off())

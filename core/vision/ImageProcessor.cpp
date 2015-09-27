@@ -467,8 +467,8 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 			continue;
 		}
 
-		const double density_tolerance = 0.30;
-		const double ratio_tolerance = 0.30;
+		const double density_tolerance = 0.50;
+		const double ratio_tolerance = 0.50;
 
 		const double density_ref = 1;
 		const double ratio_ref = 34.0 / 20.0; // Goal should be 34cm x 20cm  
@@ -487,7 +487,6 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 		if (!(ratio < ratio_tolerance)) {
 			continue;
 		}
-
 
 		BallCandidate candidate;
 		candidate.centerX = ((blob.left * 4) + (blob.right * 4)) / 2;
@@ -548,8 +547,8 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 		}
 
 		// Check area to bounding box ratio, it should be close to Pi/4
-		const double density_tolerance = 0.10;
-		const double ratio_tolerance = 0.15;
+		const double density_tolerance = 0.20;
+		const double ratio_tolerance = 0.20;
 
 		const double density_ref = 3.14159265359 / 4;
 		// Deviation from the ideal value
@@ -598,8 +597,7 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 	ball->visionElevation = cmatrix_.elevation(p);
 	ball->visionDistance = cmatrix_.groundDistance(p);
 	ball->seen = true;
-	ball->fromTopCamera = camera_ == Camera::TOP;
-
+	ball->fromTopCamera = (camera_ == Camera::TOP);
 
 	// Fill in this non-sense extra stuff for drawing when running in core mode
 	ball_candidate_->centerX  = ball->imageCenterX;
@@ -608,13 +606,14 @@ bool ImageProcessor::findBall(std::vector<Blob>& blob_list) {
 
 	// Linear model
 	ball->visionDistance = 0.811 * ball->visionDistance + 100.14;
-	printf("Ball distance: %f\n", ball->visionDistance);
+//	printf("Ball distance: %f\n", ball->visionDistance);
 
 	return true;
 }
 
 void ImageProcessor::processFrame(){
-  if(vblocks_.robot_state->WO_SELF == WO_TEAM_COACH && camera_ == Camera::BOTTOM) return;
+  // TODO: what is WO_TEAM_COACH?
+//  if(vblocks_.robot_state->WO_SELF == WO_TEAM_COACH && camera_ == Camera::BOTTOM) return;
   visionLog(30, "Process Frame camera %i", camera_);
 
   updateTransform();
@@ -712,7 +711,7 @@ void ImageProcessor::processFrame(){
 			  "i,%i) with calculated distance %2.4f", getName(WO_BEACON_YELLOW_BLUE), object.imageCenterX, object.imageCenterY, object.visionDistance);
   }
 
-  printf("\n");
+//  printf("\n");
 }
 
 // DEPRECATED
