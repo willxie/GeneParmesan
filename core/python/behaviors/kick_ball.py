@@ -41,6 +41,66 @@ class ScanRight(Node):
     if self.getTime() > 3.0:
       self.resetTime()
       self.finish()
+      
+class GetToBall(Node):
+    ball_distances = []
+    def run(self):
+        """Approach the ball enough to get it into the bottom camera
+        
+        The error term we're using is the distance to the ball
+        
+        """
+        
+        MAX_ANGULAR_VELOCITY = 3.14/2 * 0.5
+
+        # After 1.5 meters, we don't care about how far the ball is. It doesn't make us
+        # approach it any faster.
+        DISTANCE_THRESHOLD = 1.5
+        
+        # Factor to multiply thresholded distance by to get a maximum value equal to one
+        DISTANCE_CONSTANT = 2/3.
+        
+        # Ball pursing thresholds
+        MAX_FORWARD_VELOCITY = .75
+        MIN_FORWARD_VELOCITY = 0.5
+        
+        ball = memory.world_objects.getObjPtr(core.WO_BALL)
+        if not ball.seen:
+          return
+      
+        # Ball in the bottom frame?
+        if not ball.fromTopCamera:
+          self.finish()
+        
+        # Ball coordinates
+        ball_x, ball_y = ball.imageCenterX, ball.imageCenterY
+        
+        # Calculate forward velocity
+        ball_distance = ball.visionDistance / 1000
+        print('Ball distance: {}'.format(ball_distance))
+        ball_distance = min(ball_distance, DISTANCE_THRESHOLD)
+        
+        # Cache the ball distances
+        GetToBall.ball_distances = (GetToBall.ball_distances + [ball_distance])[-30:]
+        print('Ball distances: {}'.format(GetToBall.ball_distances))
+        slope = sum(GetToBall.ball_distances[-10:])/10 - sum(GetToBall.ball_distances[:10])/10
+        print('Slope: {} - {} = {}'.format(sum(GetToBall.ball_distances[-10:]) / 10,
+                                           sum(GetToBall.ball_distances[:10]) / 10,
+                                           slope))
+        print('Input: {}'.format(1 / slope if slope else 1))
+        
+        
+        # Get the maximum velocity to be 1
+        forward_vel = ball_distance * DISTANCE_CONSTANT
+        forward_vel *= MAX_FORWARD_VELOCITY
+        forward_vel = max(MIN_FORWARD_VELOCITY, forward_vel)
+        print('forward velocity: {}'.format(forward_vel))
+        
+        # Calculate sideways velocity
+        angular_vel = -(ball_x-160.0) / 160.0 * MAX_ANGULAR_VELOCITY
+        print('Sideways Amount: {}'.format(angular_vel))
+        
+        commands.setWalkVelocity(forward_vel, 0, angular_vel)
 
 # This is assuming that we can see the ball with bottom camera
 class AlignGoal(Node):
@@ -133,7 +193,7 @@ class PreKick(Node):
     y_desired = 183.0
 
     # Ball centered threshold
-    ball_tolerance = 10
+    ball_tolerance = 15
     ball_x_left_threshold    = x_desired - ball_tolerance
     ball_x_right_threshold   = x_desired + ball_tolerance
     ball_y_top_threshold     = y_desired - ball_tolerance
@@ -151,18 +211,21 @@ class PreKick(Node):
         # The 0.05 ensures that min vel is 5% of the gain
         global_offset = 0.15
         vel_x = vel_x_gain * ((y_desired - ball.imageCenterY) / (240 / 2))
-        vel_y = vel_y_gain * ((x_desired - ball.imageCenterX) / (320 / 2))
+        vel_turn = vel_turn_gain * ((x_desired - ball.imageCenterX) / (320 / 2))
+        # vel_y = vel_y_gain * ((x_desired - ball.imageCenterX) / (320 / 2))
         if abs(vel_x) < global_offset:
           if vel_x > 0:
             vel_x = global_offset
           if vel_x < 0:
             vel_x = -global_offset
-        if abs(vel_y) < global_offset:
-          if vel_y > 0:
-            vel_y = global_offset
-          if vel_y < 0:
-            vel_y = -global_offset
+        if abs(vel_turn) < global_offset:
+          if vel_turn  > 0:
+            vel_turn  = global_offset
+          if vel_turn  < 0:
+            vel_turn  = -global_offset
 
+	# TODO please remove 
+	vel_y =  0			
 
         print (vel_x)
 # (ball.imageCenterY < ball_y_bottom_threshold) and
@@ -239,9 +302,10 @@ class Playing(StateMachine):
     stand = Stand()
     sit = Sit()
     off = Off()
+    get_to_ball = GetToBall()
     align = AlignGoal()
     pre_kick = PreKick()
     kick = Kick()
-    self.trans(stand, C, align, C, pre_kick, C, kick, C, sit)
+    self.trans(stand, C, get_to_ball, C, align, C, pre_kick, C, kick, C, sit)
 
     self.setFinish(None) # This ensures that the last node in trans is not the final node
