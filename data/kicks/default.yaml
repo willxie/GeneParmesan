@@ -26,7 +26,7 @@ keyframes:
       RElbowYaw: -0.96440905042746
       RElbowRoll: -2.55126690029652
   - name: Half lean
-    frames: 200
+    frames: 100
     joints:
       HeadYaw: -0.178185975067293
       HeadPitch: -21.1795013708608
@@ -51,7 +51,7 @@ keyframes:
       RElbowYaw: -1.05229992466718
       RElbowRoll: -2.72704864877597
   - name: Finished lean
-    frames: 200
+    frames: 100
     joints:
       HeadYaw: -0.178185975067293
       HeadPitch: -21.2673939526478
@@ -101,7 +101,7 @@ keyframes:
       RElbowYaw: -0.96440905042746
       RElbowRoll: -2.72704864877597
   - name: Begin lift
-    frames: 20
+    frames: 10
     joints:
       HeadYaw: -1.49656274904149
       HeadPitch: -23.0252233902733
@@ -126,7 +126,7 @@ keyframes:
       RElbowYaw: -0.876518176187736
       RElbowRoll: -2.55126690029652
   - name: Full lift
-    frames: 20
+    frames: 10
     joints:
       HeadYaw: -1.49656274904149
       HeadPitch: -23.0252233902733
@@ -151,7 +151,7 @@ keyframes:
       RElbowYaw: -0.876518176187736
       RElbowRoll: -2.55126690029652
   - name: kick back
-    frames: 20
+    frames: 0
     joints:
       HeadYaw: -1.49656274904149
       HeadPitch: -23.0252233902733
