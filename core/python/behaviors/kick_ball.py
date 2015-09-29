@@ -136,8 +136,8 @@ class AlignGoal(Node):
     # x_desired = 120 # Ball near left foot
     # # y_desired = 240.0 / 2
     # y_desired = 200 # Ball near the bottom of the frame when looking up
-    x_desired = 117.0
-    y_desired = 183.0
+    x_desired = 125.0
+    y_desired = 190.0
 
     # Goal centered threshold
     goal_x_right_threshold = 360.0 / 2 + 30
@@ -206,7 +206,7 @@ class PreKick(Node):
     ball_aligned = False
 
     # Target position of the ball in bottom camera
-    x_desired = 100.0
+    x_desired = 110.0
     y_desired = 197.0
 
     # Ball centered threshold
@@ -230,8 +230,8 @@ class PreKick(Node):
         # Similar to AlignGoal, we want to move until the ball is in front of left foot
         # The 0.05 ensures that min vel is 5% of the gain
         global_offset = 0.15
-        vel_x = vel_x_gain * ((y_desired - ball.imageCenterY) / (240 / 2))
-        vel_turn = vel_turn_gain * ((x_desired - ball.imageCenterX) / (320 / 2))
+        vel_x = vel_x_gain * ((y_desired - ball.imageCenterY) / y_desired)
+        vel_turn = vel_turn_gain * ((x_desired - ball.imageCenterX) / x_desired)
         # vel_y = vel_y_gain * ((x_desired - ball.imageCenterX) / (320 / 2))
         if abs(vel_x) < global_offset:
           if vel_x > 0:
@@ -248,11 +248,11 @@ class PreKick(Node):
         PreKick.x_errs = (PreKick.x_errs + [vel_x])[-30:]
         
         # Integral Control
-        INTEGRAL_CONSTANT = 1 / 90.
+        INTEGRAL_CONSTANT = 1 / 75.
         integral = sum(PreKick.x_errs) * INTEGRAL_CONSTANT
-#         print('Integral: {}'.format(integral))
+        print(PreKick.x_errs)
+        print('Integral: {}'.format(integral))
         print('(x,y) = ({},{})'.format(ball.imageCenterX, ball.imageCenterY))
-        
         vel_x += integral
         
 #         print('vel_x = {}'.format(vel_x))
@@ -348,8 +348,6 @@ class Playing(StateMachine):
     
     # Lose the ball then go back to spinning
     self.trans(pursue_ball, S("restart"), spin)
-    
-    # Lose the ball and go back to spinning
     self.trans(align, S("restart"), spin)
     self.trans(pre_kick, S("restart"), spin)
 
