@@ -15,7 +15,16 @@ DISTANCE_CONSTANT = 2/3.
 MAX_FORWARD_VELOCITY = .75
 MIN_FORWARD_VELOCITY = 0.5
 
-class Playing(Task):
+class Spin(Node):
+  def run(self):
+    """Keep spinning until you see the ball"""
+    ball = memory.world_objects.getObjPtr(core.WO_BALL)
+    if ball.seen:
+      self.finish()
+      
+    commands.setWalkVelocity(0, 0, -0.25)
+
+class PursueBall(Node):
     ball_distances = []
     
     def run(self):
@@ -38,11 +47,11 @@ class Playing(Task):
         ball_distance = min(ball_distance, DISTANCE_THRESHOLD)
         
         # Cache the ball distances
-        Playing.ball_distances = (Playing.ball_distances + [ball_distance])[-30:]
-        print('Ball distances: {}'.format(Playing.ball_distances))
-        slope = sum(Playing.ball_distances[-10:])/10 - sum(Playing.ball_distances[:10])/10
-        print('Slope: {} - {} = {}'.format(sum(Playing.ball_distances[-10:]) / 10,
-                                           sum(Playing.ball_distances[:10]) / 10,
+        PursueBall.ball_distances = (PursueBall.ball_distances + [ball_distance])[-30:]
+        print('Ball distances: {}'.format(PursueBall.ball_distances))
+        slope = sum(PursueBall.ball_distances[-10:])/10 - sum(PursueBall.ball_distances[:10])/10
+        print('Slope: {} - {} = {}'.format(sum(PursueBall.ball_distances[-10:]) / 10,
+                                           sum(PursueBall.ball_distances[:10]) / 10,
                                            slope))
         print('Input: {}'.format(1 / slope if slope else 1))
         
@@ -63,3 +72,16 @@ class Playing(Task):
 class Set(Task):
   def run(self):
     commands.stand()
+    
+# Complex Tasks
+class Playing(StateMachine):
+  """Forward Walking and Turn in Place"""
+  def setup(self):
+    # Movements
+    spin = Spin()
+    pursue_ball = PursueBall()
+
+    # States
+    self.trans(spin, C, pursue_ball)
+
+    self.setFinish(None) # This ensures that the last node in trans is not the final node
