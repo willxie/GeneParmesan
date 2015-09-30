@@ -206,7 +206,7 @@ class PreKick(Node):
     ball_aligned = False
 
     # Target position of the ball in bottom camera
-    x_desired = 140.0
+    x_desired = 150.0
     y_desired = 210.0
 
     # Ball centered threshold
