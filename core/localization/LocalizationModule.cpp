@@ -1,4 +1,5 @@
 #include <localization/LocalizationModule.h>
+#include <localization/KalmanFilter.h>
 #include <memory/WorldObjectBlock.h>
 #include <memory/LocalizationBlock.h>
 #include <memory/GameStateBlock.h>
@@ -6,6 +7,7 @@
 
 // Boilerplate
 LocalizationModule::LocalizationModule() : tlogger_(textlogger) {
+
 }
 
 // Boilerplate
@@ -55,6 +57,21 @@ void LocalizationModule::reInit() {
   cache_.localization_mem->player = Point2D(-750,0);
   cache_.localization_mem->state = decltype(cache_.localization_mem->state)::Zero();
   cache_.localization_mem->covariance = decltype(cache_.localization_mem->covariance)::Identity();
+
+  // Initialize Kalman Filter here?
+
+  // Dynamical model
+  filter.A(0,0) = 1; // State is not changing
+  filter.B(0,0) = 0; // No control input
+  filter.C(0,0) = 1; // z is already in state coordinates
+
+  // Sources of error
+  filter.pred_err(0,0) = 0.00001;  // Prediction error
+  filter.sensor_err(0,0) = 0.1;      // Measurement error
+
+  // Initial estimates
+  filter.x(0,0) = 3;      // Initial estimate of the state
+  filter.x_err(0,0) = 1;  // Initial state error
 }
 
 void LocalizationModule::processFrame() {
@@ -85,6 +102,14 @@ void LocalizationModule::processFrame() {
     cache_.localization_mem->state[0] = ball.loc.x;
     cache_.localization_mem->state[1] = ball.loc.y;
     cache_.localization_mem->covariance = decltype(cache_.localization_mem->covariance)::Identity() * 10000;
+
+    Matrix<double, DIM, DIM> z;
+	z(0,0) = 1;
+	filter.update(Matrix<double, DIM, DIM>::Zero(DIM, DIM), z);
+
+	cout << "State: " << filter.getState() << endl;
+	cout << "x ball: " << ball.loc.x << endl;
+	cout << "y ball: " << ball.loc.y << endl;
   } 
   //TODO: How do we handle not seeing the ball?
   else {
