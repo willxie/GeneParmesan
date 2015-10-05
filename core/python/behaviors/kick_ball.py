@@ -206,8 +206,8 @@ class PreKick(Node):
     ball_aligned = False
 
     # Target position of the ball in bottom camera
-    x_desired = 110.0
-    y_desired = 197.0
+    x_desired = 150.0
+    y_desired = 210.0
 
     # Ball centered threshold
     ball_tolerance = 15
@@ -229,7 +229,7 @@ class PreKick(Node):
       else:
         # Similar to AlignGoal, we want to move until the ball is in front of left foot
         # The 0.05 ensures that min vel is 5% of the gain
-        global_offset = 0.15
+        global_offset = 0.20
         vel_x = vel_x_gain * ((y_desired - ball.imageCenterY) / y_desired)
         vel_turn = vel_turn_gain * ((x_desired - ball.imageCenterX) / x_desired)
         # vel_y = vel_y_gain * ((x_desired - ball.imageCenterX) / (320 / 2))
