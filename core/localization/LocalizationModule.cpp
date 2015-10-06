@@ -4,6 +4,7 @@
 #include <memory/LocalizationBlock.h>
 #include <memory/GameStateBlock.h>
 #include <memory/RobotStateBlock.h>
+#include <cmath>
 
 // Boilerplate
 LocalizationModule::LocalizationModule() : tlogger_(textlogger) {
@@ -59,35 +60,31 @@ void LocalizationModule::reInit() {
   cache_.localization_mem->covariance = decltype(cache_.localization_mem->covariance)::Identity();
 
   // Kalman Filter Initialization
-  const double DT = 1.0/30;
-  cout << "DT: " << DT << endl;
-  cout << "-1.0/DT: " << -1.0/DT << endl;
+  // This is 1/(sample rate). Assuming 30 hz
+  const double dt = 1.0/30;
+
+  // Initial state vector (x, y, x', y', x'', y'')'
+  filter.x = Matrix<double, DIM_X, 1>::Zero(DIM_X, 1);
 
   // Transition matrix
-  filter.A << 1,    0,     0,    0,  0,  0,
-		      0,    1,     0,    0, DT,  0,
-			  0,    0,     1,    0,  0,  0,
-			  0,    0,     0,    1,  0, DT,
-        -1.0/DT, 1.0/DT,     0,    0,  0,  0,
-	          0,    0, -1.0/DT, 1.0/DT,  0,  0;
+  filter.A << 1,    0,   dt,    0, pow(dt,2)/2,           0,
+		  	  0,    1,    0,   dt,           0, pow(dt,2)/2,
+			  0,    0,    1,    0,          dt,           0,
+			  0,    0,    0,    1,           0,          dt,
+			  0,    0,    0,    0,           1,           0,
+			  0,    0,    0,    0,           0,           1;
 
-  // No input
+  // No input so it doesn't matter
   filter.B = Matrix<double, DIM_X, DIM_U>::Zero();
 
   // Extract predicted x and y values from state vector
-  filter.C << 0, 1, 0, 0, 0, 0,
-		      0, 0, 0, 1, 0, 0;
+  filter.C << 1, 0, 0, 0, 0, 0,
+		      0, 1, 0, 0, 0, 0;
 
   // Sources of error
-  filter.pred_err = Matrix<double, DIM_X, DIM_X>::Identity(DIM_X, DIM_X);
-  filter.sensor_err = Matrix<double, DIM_Z, DIM_Z>::Identity(DIM_Z, DIM_Z);
-
-  // Initial estimates
-  filter.x = Matrix<double, DIM_X, 1>::Zero(DIM_X, 1);
-
-  cout << "Initial State: " << filter.getState() << endl;
-
-  filter.x_err = Matrix<double, DIM_X, DIM_X>::Identity(DIM_X, DIM_X);
+  filter.pred_err   = Matrix<double, DIM_X, DIM_X>::Identity() * 10000; // TODO
+  filter.sensor_err = Matrix<double, DIM_Z, DIM_Z>::Identity() * 10000; // TODO
+  filter.x_err      = Matrix<double, DIM_X, DIM_X>::Identity() * 10000;
 }
 
 void LocalizationModule::processFrame() {
@@ -101,6 +98,7 @@ void LocalizationModule::processFrame() {
     
   //TODO: modify this block to use your Kalman filter implementation
   if(ball.seen) {
+
     // Compute the relative position of the ball from vision readings
     auto relBall = Point2D::getPointFromPolar(ball.visionDistance, ball.visionBearing);
 
@@ -116,20 +114,30 @@ void LocalizationModule::processFrame() {
     // Update the localization memory objects with localization calculations
     // so that they are drawn in the World window
 
-	Matrix<double, DIM_X, 1> x = filter.getState();
+	Matrix<double, DIM_X, 1> x;
+    Matrix<double, DIM_Z, 1> z;
+    Matrix<double, DIM_X, DIM_X> covariance = filter.getCovariance();
 
-    cache_.localization_mem->state[0] = x(1,0);
-    cache_.localization_mem->state[1] = x(3,0);
-    cache_.localization_mem->covariance = decltype(cache_.localization_mem->covariance)::Identity() * 10000;
+    // Input control and measurement
+    z << ball.loc.x,  ball.loc.y;
 
-    Matrix<double, DIM_Z, 1> z = Matrix<double, DIM_Z, 1>::Zero(DIM_Z, 1);
-    z(0,0) = ball.loc.x;
-    z(1,0) = ball.loc.y;
-	filter.update(Matrix<double, DIM_U, 1>::Zero(DIM_U, 1), z);
+	filter.update(Matrix<double, DIM_U, 1>::Zero(), z);
 
-	cout << "State: " << endl << filter.getState() << endl;
-//	cout << "x ball: " <<  << endl;
-//	cout << "y ball: " <<  << endl;
+	// Update
+	x = filter.getState();
+    cache_.localization_mem->state[0] = x(0,0);
+    cache_.localization_mem->state[1] = x(1,0);
+    //    cache_.localization_mem->covariance = decltype(cache_.localization_mem->covariance)::Identity() * 10000; // TODO actual cov.
+    Matrix<float, 2, 2, Eigen::DontAlign> covariance_small;
+    covariance_small(0, 0) = covariance(0, 0);
+    covariance_small(0, 1) = covariance(0, 1);
+    covariance_small(1, 0) = covariance(1, 0);
+    covariance_small(1, 1) = covariance(1, 1);
+    cache_.localization_mem->covariance = covariance_small; // TODO actual cov.
+    cout << covariance_small << endl;
+
+
+	cout << ": " << endl << filter.getState() << endl;
   } 
   //TODO: How do we handle not seeing the ball?
   else {
