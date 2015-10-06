@@ -1,7 +1,7 @@
 // g++ -Wall -Werror -Wextra kalman.cpp -o kalman
 
 #include <iostream>
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 #include <random>
 #include <math.h>
 
@@ -9,61 +9,65 @@ using namespace std;
 using namespace Eigen;
 
 // This implementation follows closely with Probilitistic Robotics book's
-template<int DIM>
+
+template<int DIM_X, int DIM_U, int DIM_Z>
 class KalmanFilter {
   public:
     // Model params
-    Matrix<double, DIM, DIM> A;
-    Matrix<double, DIM, DIM> B;
-    Matrix<double, DIM, DIM> C;
+    Matrix<double, DIM_X, DIM_X> A;
+    Matrix<double, DIM_X, DIM_U> B;
+    Matrix<double, DIM_Z, DIM_X> C;
 
-    Matrix<double, DIM, DIM> pred_err;
-    Matrix<double, DIM, DIM> sensor_err;
+    Matrix<double, DIM_X, DIM_X> pred_err;
+    Matrix<double, DIM_Z, DIM_Z> sensor_err;
 
-    //  x = state, sigma = covariance matrix, u = control,, z = observation
-    Matrix<double, DIM, 1> x;
-    Matrix<double, DIM, 1> x_pred;
-    Matrix<double, DIM, DIM> x_err;
-    Matrix<double, DIM, DIM> x_err_pred;
+    // x_err = sigma
+    Matrix<double, DIM_X, 1> x;
+    Matrix<double, DIM_X, 1> x_pred;
+    Matrix<double, DIM_X, DIM_X> x_err;
+    Matrix<double, DIM_X, DIM_X> x_err_pred;
 
-    KalmanFilter (Matrix<double, DIM, DIM>& A,
-    		      Matrix<double, DIM, DIM>& B,
-                  Matrix<double, DIM, DIM>& C,
-                  Matrix<double, DIM, DIM>& pred_err,
-				  Matrix<double, DIM, DIM>& sensor_err,
-				  Matrix<double, DIM, 1>& x_0,
-				  Matrix<double, DIM, DIM>& x_err):
+    KalmanFilter (Matrix<double, DIM_X, DIM_X> A,
+    		      Matrix<double, DIM_X, DIM_U>& B,
+                  Matrix<double, DIM_Z, DIM_X>& C,
+                  Matrix<double, DIM_X, DIM_X>& pred_err,
+				  Matrix<double, DIM_Z, DIM_Z>& sensor_err,
+				  Matrix<double, DIM_X, 1>& x_0,
+				  Matrix<double, DIM_X, DIM_X>& x_err):
         A(A), B(B), C(C),
 		pred_err(pred_err), sensor_err(sensor_err),
 		x(x_0), x_err(x_err) {}
 
-    void update(Matrix<double, DIM, 1> u, Matrix<double, DIM, 1> z) {
+    void update(Matrix<double, DIM_U, 1> u, Matrix<double, DIM_Z, 1> z) {
         // State estimation
         x_pred = (A * x) + (B * u);
         x_err_pred = A * x_err * A.transpose() + pred_err;
 
         // Measurement update
-        Matrix<double, DIM, DIM> innovation_cov = C * x_err_pred * C.transpose() + sensor_err;
-        Matrix<double, DIM, DIM> K = x_err_pred * C.transpose() * innovation_cov.inverse();
+        Matrix<double, DIM_X, DIM_Z> K = x_err_pred * C.transpose() *
+            (C * x_err_pred * C.transpose() + sensor_err).inverse();
         x_pred = x_pred + K * (z - C * x_pred);
-        x_err_pred = (Matrix<double, DIM, DIM>::Identity(DIM, DIM) - K * C) * x_err_pred;
+        x_err_pred = (Matrix<double, DIM_X, DIM_X>::Identity(DIM_X, DIM_X) - K * C) * x_err_pred;
 
         // Store values
         x = x_pred;
         x_err = x_err_pred;
     }
 
-    Matrix<double, DIM, 1> getState() {
+    Matrix<double, DIM_X, 1> getState() {
         return x;
     }
 
-    Matrix<double, DIM, DIM> getCovariance() {
+    Matrix<double, DIM_X, DIM_X> getCovariance() {
         return x_err;
     }
 
 };
 
 int main(int argc, char *argv[]) {
+    argc = argc;
+    argv = argv;
+
     const int DIM = 4;
 
     Matrix<double, DIM, DIM> A;
@@ -110,7 +114,7 @@ int main(int argc, char *argv[]) {
     x_err = Matrix<double, DIM, DIM>::Identity(DIM, DIM);
 
     // Initialize the filter
-    KalmanFilter<DIM> filter (A, B, C, pred_err, sensor_err, x_0, x_err);
+    KalmanFilter<DIM, DIM, DIM> filter (A, B, C, pred_err, sensor_err, x_0, x_err);
 
     const double GRAVITY = 9.81;
     Matrix<double, 4, 1> u;
