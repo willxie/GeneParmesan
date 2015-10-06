@@ -5,7 +5,7 @@
 #include <localization/LocalizationParams.h>
 #include <localization/KalmanFilter.h>
 
-const int DIM = 1;
+const int DIM = 6;
 
 class LocalizationModule : public Module {
   public:

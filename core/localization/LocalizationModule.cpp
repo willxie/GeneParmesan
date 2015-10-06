@@ -58,20 +58,31 @@ void LocalizationModule::reInit() {
   cache_.localization_mem->state = decltype(cache_.localization_mem->state)::Zero();
   cache_.localization_mem->covariance = decltype(cache_.localization_mem->covariance)::Identity();
 
-  // Initialize Kalman Filter here?
+  // Kalman Filter Initialization
+  const double DT = 1/30;
 
-  // Dynamical model
-  filter.A(0,0) = 1; // State is not changing
-  filter.B(0,0) = 0; // No control input
-  filter.C(0,0) = 1; // z is already in state coordinates
+  // Transition matrix
+  filter.A << 1,    0,     0,    0,  0,  0,
+		      0,    1,     0,    0, DT,  0,
+			  0,    0,     1,    0,  0,  0,
+			  0,    0,     0,    1,  0, DT,
+          -1/DT, 1/DT,     0,    0,  0,  0,
+	          0,    0, -1/DT, 1/DT,  0,  0;
+
+  // No input
+  filter.B = Matrix<double, DIM, DIM>::Zero(DIM, DIM);
+
+  // Extract predicted x and y values from state vector
+  filter.C << 0, 1, 0, 0, 0, 0,
+		      0, 0, 0, 1, 0, 0;
 
   // Sources of error
-  filter.pred_err(0,0) = 0.00001;  // Prediction error
-  filter.sensor_err(0,0) = 0.1;      // Measurement error
+  filter.pred_err = Matrix<double, DIM, DIM>::Identity(DIM, DIM);
+  filter.sensor_err = Matrix<double, DIM, DIM>::Identity(DIM, DIM);
 
   // Initial estimates
-  filter.x(0,0) = 3;      // Initial estimate of the state
-  filter.x_err(0,0) = 1;  // Initial state error
+  filter.x = Matrix<double, DIM, DIM>::Zero(DIM, DIM);
+  filter.x_err = Matrix<double, DIM, DIM>::Identity(DIM, DIM);
 }
 
 void LocalizationModule::processFrame() {
