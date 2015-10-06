@@ -74,6 +74,13 @@ void LocalizationModule::reInit() {
 			  0,    0,    0,    0,           1,           0,
 			  0,    0,    0,    0,           0,           1;
 
+//  filter.A << 1,    0,   dt,    0, 0,           0,
+//			  0,    1,    0,   dt,           0, 0,
+//			  0,    0,    1,    0,          dt,           0,
+//			  0,    0,    0,    1,           0,          dt,
+//			  0,    0,    0,    0,           1,           0,
+//			  0,    0,    0,    0,           0,           1;
+
   // No input so it doesn't matter
   filter.B = Matrix<double, DIM_X, DIM_U>::Zero();
 
@@ -109,7 +116,6 @@ void LocalizationModule::processFrame() {
     ball.loc = globalBall;
     ball.distance = ball.visionDistance;
     ball.bearing = ball.visionBearing;
-    //ball.absVel = fill this in
 
     // Update the localization memory objects with localization calculations
     // so that they are drawn in the World window
@@ -134,10 +140,13 @@ void LocalizationModule::processFrame() {
     covariance_small(1, 0) = covariance(1, 0);
     covariance_small(1, 1) = covariance(1, 1);
     cache_.localization_mem->covariance = covariance_small; // TODO actual cov.
-    cout << covariance_small << endl;
 
+    cout << "State:" << endl;
+    cout << filter.getState() << endl;
 
-	cout << ": " << endl << filter.getState() << endl;
+    ball.absVel.x = x(2, 0);
+    ball.absVel.y = x(3, 0);
+
   } 
   //TODO: How do we handle not seeing the ball?
   else {
