@@ -61,6 +61,20 @@ class KalmanFilter {
         x_err = x_err_pred;
     }
 
+    void updateWithoutAnything() {
+        // State estimation
+        x_pred = (A * x);
+        x_err_pred = A * x_err * A.transpose() + pred_err;
+
+        // Measurement update
+        Matrix<double, DIM_X, DIM_Z> K = x_err_pred * C.transpose() *
+            (C * x_err_pred * C.transpose() + sensor_err).inverse();
+
+        // Store values
+        x = x_pred;
+        x_err = x_err_pred;
+    }
+
     Matrix<double, DIM_X, 1> getState() {
         return x;
     }

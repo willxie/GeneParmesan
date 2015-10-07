@@ -89,9 +89,9 @@ void LocalizationModule::reInit() {
 		      0, 1, 0, 0, 0, 0;
 
   // Sources of error
-  filter.pred_err   = Matrix<double, DIM_X, DIM_X>::Identity() * 10000; // TODO
-  filter.sensor_err = Matrix<double, DIM_Z, DIM_Z>::Identity() * 10000; // TODO
-  filter.x_err      = Matrix<double, DIM_X, DIM_X>::Identity() * 10000;
+  filter.pred_err   = Matrix<double, DIM_X, DIM_X>::Identity() * 100; // TODO
+  filter.sensor_err = Matrix<double, DIM_Z, DIM_Z>::Identity() * 30; // TODO
+  filter.x_err      = Matrix<double, DIM_X, DIM_X>::Identity() * 1000;
 }
 
 void LocalizationModule::processFrame() {
@@ -105,6 +105,8 @@ void LocalizationModule::processFrame() {
     
   //TODO: modify this block to use your Kalman filter implementation
   if(ball.seen) {
+	filter.pred_err   = Matrix<double, DIM_X, DIM_X>::Identity() * 100; // TODO
+	filter.sensor_err = Matrix<double, DIM_Z, DIM_Z>::Identity() * 30; // TODO
 
     // Compute the relative position of the ball from vision readings
     auto relBall = Point2D::getPointFromPolar(ball.visionDistance, ball.visionBearing);
@@ -122,7 +124,7 @@ void LocalizationModule::processFrame() {
 
 	Matrix<double, DIM_X, 1> x;
     Matrix<double, DIM_Z, 1> z;
-    Matrix<double, DIM_X, DIM_X> covariance = filter.getCovariance();
+    Matrix<double, DIM_X, DIM_X> covariance;
 
     // Input control and measurement
     z << ball.loc.x,  ball.loc.y;
@@ -131,25 +133,68 @@ void LocalizationModule::processFrame() {
 
 	// Update
 	x = filter.getState();
+    covariance = filter.getCovariance();
+
     cache_.localization_mem->state[0] = x(0,0);
     cache_.localization_mem->state[1] = x(1,0);
     //    cache_.localization_mem->covariance = decltype(cache_.localization_mem->covariance)::Identity() * 10000; // TODO actual cov.
+    Matrix<float, 2, 2, Eigen::DontAlign> covariance_small;
+    // YOLO
+    covariance_small(0, 0) = covariance(0, 0);
+    covariance_small(0, 1) = covariance(0, 1);
+    covariance_small(1, 0) = covariance(1, 0);
+    covariance_small(1, 1) = covariance(1, 1);
+    cache_.localization_mem->covariance = covariance_small;
+
+//    cout << "State:" << endl;
+//    cout << filter.getState() << endl;
+
+    //
+    ball.loc.x    = x(0, 0);
+    ball.loc.y    = x(1, 0);
+    ball.absVel.x = x(2, 0);
+    ball.absVel.y = x(3, 0);
+    ball.relVel.x = x(4, 0); // TODO
+    ball.relVel.y = x(5, 0); // TODO
+  } 
+  //TODO: How do we handle not seeing the ball?
+  else {
+	// Make filter completely rely on prediction model
+	filter.pred_err   = Matrix<double, DIM_X, DIM_X>::Zero();
+	filter.sensor_err = Matrix<double, DIM_Z, DIM_Z>::Identity() * 1.8E+307; // TODO
+
+    Matrix<double, DIM_Z, 1> z;
+	Matrix<double, DIM_X, 1> x_temp;
+
+//	x_temp = filter.getState();
+//
+    z <<  0, 0;
+
+//	filter.update(Matrix<double, DIM_U, 1>::Zero(), z);
+    filter.updateWithoutAnything();
+	Matrix<double, DIM_X, 1> x;
+    Matrix<double, DIM_X, DIM_X> covariance;
+
+	x = filter.getState();
+    covariance = filter.getCovariance();
+
+	cache_.localization_mem->state[0] = x(0,0);
+	cache_.localization_mem->state[1] = x(1,0);
     Matrix<float, 2, 2, Eigen::DontAlign> covariance_small;
     covariance_small(0, 0) = covariance(0, 0);
     covariance_small(0, 1) = covariance(0, 1);
     covariance_small(1, 0) = covariance(1, 0);
     covariance_small(1, 1) = covariance(1, 1);
-    cache_.localization_mem->covariance = covariance_small; // TODO actual cov.
+    cache_.localization_mem->covariance = covariance_small;
 
-    cout << "State:" << endl;
-    cout << filter.getState() << endl;
+//    cout << "State:" << endl;
+//    cout << filter.getState() << endl;
 
     ball.absVel.x = x(2, 0);
     ball.absVel.y = x(3, 0);
+    ball.relVel.x = x(4, 0); // TODO
+    ball.relVel.y = x(5, 0); // TODO
 
-  } 
-  //TODO: How do we handle not seeing the ball?
-  else {
     ball.distance = 10000.0f;
     ball.bearing = 0.0f;
   }

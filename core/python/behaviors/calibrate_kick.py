@@ -55,6 +55,21 @@ class Off(Node):
       memory.speech.say("Off")
       self.finish()
 
+# class Set(StateMachine):
+#   """Forward Walking and Turn in Place"""
+#   def setup(self):
+#     memory.speech.say("Head!")
+
+#     # Movements
+#     stand = Stand()
+#     fake_sit = FakeSit()
+#     off = Off()
+#     change_stiff = ChangeStiff()
+#     self.trans(stand, C, fake_sit, C, change_stiff)
+#     # self.trans(stand, C, fake_sit, C, off)
+
+
+#     # self.setFinish(None) # This ensures that the last node in trans is not the final node
 
 
 class ChangeStiff(Node):
@@ -114,7 +129,8 @@ class TrackBall(Node):
 
 class Ready(Task):
   def run(self):
-    commands.standStraight()
+    commands.stand()
+    commands.setStiffness(ChangeStiff.OneLegSoft)
     if self.getTime() > 3.0:
       memory.speech.say("I am ready")
       self.finish()
