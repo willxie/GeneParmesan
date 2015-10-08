@@ -53,6 +53,27 @@ void LocalizationModule::initFromWorld() {
   cache_.localization_mem->player = self.loc;
 }
 
+
+
+Matrix<double, DIM_X, 1> TransitionFunction(Matrix<double, DIM_X, 1> x, Matrix<double, DIM_U, 1> u) {
+    u = u;
+    Matrix<double, DIM_X, DIM_X> A;
+    A << 1,    0,   dt,    0, pow(dt,2)/2,           0,
+        0,    1,    0,   dt,           0, pow(dt,2)/2,
+        0,    0,    1,    0,          dt,           0,
+        0,    0,    0,    1,           0,          dt,
+        0,    0,    0,    0,           1,           0,
+        0,    0,    0,    0,           0,           1;
+    return (A * x);
+}
+
+Matrix<double, DIM_Z, 1> MeasurementFunction(Matrix<double, DIM_X, 1> x) {
+    Matrix<double, DIM_Z, DIM_X> C;
+    C << 1, 0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0, 0;
+    return (C * x);
+}
+
 // Reinitialize from scratch
 void LocalizationModule::reInit() {
   cache_.localization_mem->player = Point2D(-750,0);
@@ -60,33 +81,27 @@ void LocalizationModule::reInit() {
   cache_.localization_mem->covariance = decltype(cache_.localization_mem->covariance)::Identity();
 
   // Kalman Filter Initialization
-  // This is 1/(sample rate). Assuming 30 hz
-  const double dt = 1.0/30;
-
   // Initial state vector (x, y, x', y', x'', y'')'
   filter.x = Matrix<double, DIM_X, 1>::Zero(DIM_X, 1);
 
   // Transition matrix
-  filter.A << 1,    0,   dt,    0, pow(dt,2)/2,           0,
-		  	  0,    1,    0,   dt,           0, pow(dt,2)/2,
-			  0,    0,    1,    0,          dt,           0,
-			  0,    0,    0,    1,           0,          dt,
-			  0,    0,    0,    0,           1,           0,
-			  0,    0,    0,    0,           0,           1;
-
-//  filter.A << 1,    0,   dt,    0, 0,           0,
-//			  0,    1,    0,   dt,           0, 0,
+  // Don't need. See KalmanFilter.h for transition and measurement functions
+//  filter.A << 1,    0,   dt,    0, pow(dt,2)/2,           0,
+//		  	  0,    1,    0,   dt,           0, pow(dt,2)/2,
 //			  0,    0,    1,    0,          dt,           0,
 //			  0,    0,    0,    1,           0,          dt,
 //			  0,    0,    0,    0,           1,           0,
 //			  0,    0,    0,    0,           0,           1;
+//
+//  // No input so it doesn't matter
+//  filter.B = Matrix<double, DIM_X, DIM_U>::Zero();
+//
+//  // Extract predicted x and y values from state vector
+//  filter.C << 1, 0, 0, 0, 0, 0,
+//		      0, 1, 0, 0, 0, 0;
 
-  // No input so it doesn't matter
-  filter.B = Matrix<double, DIM_X, DIM_U>::Zero();
-
-  // Extract predicted x and y values from state vector
-  filter.C << 1, 0, 0, 0, 0, 0,
-		      0, 1, 0, 0, 0, 0;
+  filter.transitionFunction = &TransitionFunction;
+  filter.measurementFunction = &MeasurementFunction;
 
   // Sources of error
   filter.pred_err   = Matrix<double, DIM_X, DIM_X>::Identity() * 100; // TODO
