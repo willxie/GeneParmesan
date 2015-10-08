@@ -5,9 +5,6 @@
 #include <localization/LocalizationParams.h>
 #include <localization/KalmanFilter.h>
 
-const int DIM_X = 6;
-const int DIM_U = 4;
-const int DIM_Z = 2;
 
 class LocalizationModule : public Module {
   public:
@@ -25,5 +22,5 @@ class LocalizationModule : public Module {
     MemoryCache cache_;
     TextLogger*& tlogger_;
     LocalizationParams params_;
-    KalmanFilter<DIM_X, DIM_U, DIM_Z> filter;
+    ExtendedKalmanFilter<DIM_X, DIM_U, DIM_Z> filter;
 };
