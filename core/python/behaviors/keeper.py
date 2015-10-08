@@ -183,11 +183,12 @@ class Playing(LoopingStateMachine):
     #   if val != None:
     #     joint_commands.setJointCommand(i, val * core.DEG_T_RAD)
 
+    toPoseTime = 0.5
     poses = {
-      "left": pose.ToPose(standingLeftArmPose, 1),
-      "right": pose.ToPose(standingRightArmPose, 1),
-      "center": pose.ToPose(standingBothArmPose, 1),
-      "no_block": pose.ToPose(cfgpose.standingPose, 1)
+      "left": pose.ToPose(standingLeftArmPose, toPoseTime),
+      "right": pose.ToPose(standingRightArmPose, toPoseTime),
+      "center": pose.ToPose(standingBothArmPose, toPoseTime),
+      "no_block": pose.ToPose(cfgpose.standingPose, toPoseTime)
     }
 
     stand = Stand()
@@ -197,7 +198,7 @@ class Playing(LoopingStateMachine):
     for name in blocks:
       b = blocks[name]
       p = poses[name]
-      self.trans(blocker, S(name), p, C, b, T(3), pose.ToPose(cfgpose.standingPose), C, blocker)
+      self.trans(blocker, S(name), p, C, b, T(3), pose.ToPose(cfgpose.standingPose, toPoseTime), C, blocker)
 
     self.setFinish(None) # This ensures that the last node in trans is not the final node
 
