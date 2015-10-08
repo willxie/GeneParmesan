@@ -105,8 +105,8 @@ void LocalizationModule::processFrame() {
     
   //TODO: modify this block to use your Kalman filter implementation
   if(ball.seen) {
-	filter.pred_err   = Matrix<double, DIM_X, DIM_X>::Identity() * 100; // TODO
-	filter.sensor_err = Matrix<double, DIM_Z, DIM_Z>::Identity() * 30; // TODO
+	filter.pred_err   = Matrix<double, DIM_X, DIM_X>::Identity() * 1; // TODO
+	filter.sensor_err = Matrix<double, DIM_Z, DIM_Z>::Identity() * 5; // TODO
 
     // Compute the relative position of the ball from vision readings
     auto relBall = Point2D::getPointFromPolar(ball.visionDistance, ball.visionBearing);

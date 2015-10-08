@@ -106,7 +106,7 @@ class Blocker(Node):
       UTdebug.log(15, "y_intersect: {}".format(y_intersect))
 
 
-    if ball.distance < 500:
+    if ball.distance < 750:
       # TODO
       accel = (self.vel_list[-1] - self.vel_list[0]) / float(len(self.vel_list))
       # ball_loc_pred = abs(ball.absVel.x * 3)
