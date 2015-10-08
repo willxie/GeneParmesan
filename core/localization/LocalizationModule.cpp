@@ -104,8 +104,8 @@ void LocalizationModule::reInit() {
   filter.measurementFunction = &MeasurementFunction;
 
   // Sources of error
-  filter.pred_err   = Matrix<double, DIM_X, DIM_X>::Identity() * 100; // TODO
-  filter.sensor_err = Matrix<double, DIM_Z, DIM_Z>::Identity() * 30; // TODO
+  filter.pred_err   = Matrix<double, DIM_X, DIM_X>::Identity() * 1; // TODO
+  filter.sensor_err = Matrix<double, DIM_Z, DIM_Z>::Identity() * 5; // TODO
   filter.x_err      = Matrix<double, DIM_X, DIM_X>::Identity() * 1000;
 }
 
@@ -133,6 +133,12 @@ void LocalizationModule::processFrame() {
     ball.loc = globalBall;
     ball.distance = ball.visionDistance;
     ball.bearing = ball.visionBearing;
+
+    // TODO
+    if (ball.distance < 500) {
+    	filter.pred_err   = Matrix<double, DIM_X, DIM_X>::Identity() * 100; // TODO
+    	filter.sensor_err = Matrix<double, DIM_Z, DIM_Z>::Identity() * 1; // TODO
+    }
 
     // Update the localization memory objects with localization calculations
     // so that they are drawn in the World window
@@ -172,7 +178,6 @@ void LocalizationModule::processFrame() {
     ball.relVel.x = x(4, 0); // TODO
     ball.relVel.y = x(5, 0); // TODO
   } 
-  //TODO: How do we handle not seeing the ball?
   else {
 	// Make filter completely rely on prediction model
 	filter.pred_err   = Matrix<double, DIM_X, DIM_X>::Zero();
@@ -205,10 +210,10 @@ void LocalizationModule::processFrame() {
 //    cout << "State:" << endl;
 //    cout << filter.getState() << endl;
 
-    ball.absVel.x = x(2, 0);
-    ball.absVel.y = x(3, 0);
-    ball.relVel.x = x(4, 0); // TODO
-    ball.relVel.y = x(5, 0); // TODO
+//    ball.absVel.x = x(2, 0);
+//    ball.absVel.y = x(3, 0);
+//    ball.relVel.x = x(4, 0); // TODO
+//    ball.relVel.y = x(5, 0); // TODO
 
     ball.distance = 10000.0f;
     ball.bearing = 0.0f;

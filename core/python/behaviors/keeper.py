@@ -84,7 +84,7 @@ class Blocker(Node):
 
   def run(self):
     if self.getTime() < 1.0:
-      memory.speech.say("Ready")
+      memory.speech.say("Come at me Jake!")
 
     ball = mem_objects.world_objects[core.WO_BALL]
     commands.setHeadPan(ball.bearing, 1.0)
@@ -130,12 +130,12 @@ class Blocker(Node):
 
         # if ball.bearing > 30 * core.DEG_T_RAD:
         if xvel_avg < min_xvel_avg:
-          if 130 < y_intersect: # < 450
+          if 130 < y_intersect < 500:
             choice = "left"
             # elif ball.bearing < -30 * core.DEG_T_RAD:
           elif -140 < y_intersect < 130:
             choice = "center"
-          elif y_intersect < -140: # -474 <
+          elif -500 < y_intersect < -140:
             choice = "right"
           # else:
           #   choice = "no_block"
@@ -183,7 +183,7 @@ class Playing(LoopingStateMachine):
     #   if val != None:
     #     joint_commands.setJointCommand(i, val * core.DEG_T_RAD)
 
-    toPoseTime = 0.5
+    toPoseTime = 0.2
     poses = {
       "left": pose.ToPose(standingLeftArmPose, toPoseTime),
       "right": pose.ToPose(standingRightArmPose, toPoseTime),
