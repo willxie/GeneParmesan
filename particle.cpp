@@ -1,4 +1,5 @@
-// g++ -Wall -Werror -Wextra kalman.cpp -o kalman
+// g++ -Wall -Werror -Wextra particle.cpp -o particle -std=c++11
+
 
 #include <iostream>
 #include <eigen3/Eigen/Dense>
@@ -9,8 +10,8 @@
 using namespace std;
 using namespace Eigen;
 
-const int DIM_X = 6;
-const int DIM_U = 4;
+const int DIM_X = 3;
+const int DIM_U = 3;
 const int DIM_Z = 2;
 const double dt = 1.0/30;
 
@@ -18,6 +19,9 @@ const double dt = 1.0/30;
 const double noise_mean = 0.0;
 const double noise_stddev_xy = 10; // TODO tweak this
 const double noise_stddev_theta = 0.2; // TODO tweak this
+
+const double MAX_DIST = 2500;
+const double MAX_ANGLE = 2.1 * 3.14;
 
 Matrix<double, DIM_X, 1> TransitionFunction(Matrix<double, DIM_X, 1> x, Matrix<double, DIM_U, 1> u) {
     Matrix<double, DIM_X, DIM_X> A = Matrix<double, DIM_X, DIM_X>::Identity();
@@ -34,7 +38,7 @@ Matrix<double, DIM_X, 1> TransitionFunction(Matrix<double, DIM_X, 1> x, Matrix<d
 
     Matrix<double, DIM_X, 1> noise;
 
-    noise <<     nd_x(gen) <<     nd_y(gen) <<     nd_theta(gen);
+    noise << nd_x(gen), nd_y(gen), nd_theta(gen);
 
     return (A * x) + (B * u) + noise;
 }
@@ -53,16 +57,26 @@ class ParticleFilter {
 
     ParticleFilter () {}
 
-    /* Populate particles with M random particles */
+
+    // Populate particles with M random particles
     void init() {
-    	for (int i = 0; i < num_particles; i++) {
-    		//particles[i] =
+    	srand(time(NULL));
+
+    	std::vector<Matrix<double, DIM_X, 1> > particles;
+    	for (int i = 0; i < 5; i++) {
+    		Matrix<double, DIM_X, 1> particle;
+    		particle << (rand() % (2*2500)) - 2500,
+		            (rand() % (2*1250)) - 1250,
+    			    (rand() % (2*180))  - 180;
+    		particles.push_back(particle);
     	}
     }
 
+
+
     // Loc is the location of the beacon (x, y)
     void update(Matrix<double, DIM_U, 1> u, Matrix<double, DIM_Z, 1> z,  Matrix<double, 2, 1> loc) {
-        for (int i = 0; i < m; ++i) {
+        for (int i = 0; i < num_particles; ++i) {
             Matrix<double, DIM_X, 1> x;
             // Motion with noise
             x = (*transitionFunction)(particles[i], u);
@@ -74,7 +88,7 @@ class ParticleFilter {
             // TODO: dunno how to calculate bearing lol
             // double angle_particle = 0;
             double weight_angle    = MAX_ANGLE - 0;
-            const weight_ratio  = 1; // TODO move this out
+            const double weight_ratio  = 1; // TODO move this out
             double weight_combined = weight_ratio * weight_distance  + (1 - weight_ratio) * weight_angle;
 
             candidate_particles[i] = x;
@@ -88,18 +102,48 @@ class ParticleFilter {
             particles[i] = x;
         }
     }
+};
+
 
 int main(int argc, char *argv[]) {
-	std::random_device rd;
-	std::mt19937 gen(rd());
-	std::discrete_distribution<> d({20,30,200,10});
-	std::map<int, int> m;
+    argc = argc;
+    argv = argv;
+ 	// std::random_device rd;
+	// std::mt19937 gen(rd());
+	// std::discrete_distribution<> d({20,30,200,10});
+	// std::map<int, int> m;
 
-	for(int n = 0; n < 10000; n++) {
-		m[d(gen)]++;
-	}
+	// for(int n = 0; n < 10000; n++) {
+	// 	m[d(gen)]++;
+	// }
 
-	for(auto p : m) {
-		std::cout << p.first << " generated " << p.second << " times\n";
-	}
+	// for(auto p : m) {
+	// 	std::cout << p.first << " generated " << p.second << " times\n";
+	// }
+
+	// // Random number logic
+	// cout << "x: " << (rand() % (2*2500)) - 2500 << endl;
+	// cout << "y: " << (rand() % (2*1250)) - 1250 << endl;
+
+	// std::vector<Matrix<double, 3, 1> > particles;
+	// for (int i = 0; i < 5; i++) {
+	// 	cout << "In the loop!" << endl;
+	// 	Matrix<double, 3, 1> particle;
+	// 	particle << (rand() % (2*2500)) - 2500,
+	// 			    (rand() % (2*1250)) - 1250,
+	// 				(rand() % (2*180))  - 180;
+	// 	particles.push_back(particle);
+	// }
+
+	// Matrix<double, 3, 1> particle;
+	// particle << (rand() % (2*2500)) - 2500,
+	// 		    (rand() % (2*1250)) - 1250,
+	// 			(rand() % (2*180))  - 180;
+	// particles.push_back(particle);
+
+	// for (auto& particle : particles) {
+	// 	cout << particle << endl << endl;
+	// }
+
+	// cout << particles.size() << endl;
 }
