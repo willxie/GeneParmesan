@@ -5,10 +5,15 @@
 #include <memory/GameStateBlock.h>
 #include <memory/RobotStateBlock.h>
 #include <cmath>
+#include <localization/ParticleFilter.h>
+#include <localization/Logging.h>
 
 // Boilerplate
-LocalizationModule::LocalizationModule() : tlogger_(textlogger) {
+LocalizationModule::LocalizationModule() : tlogger_(textlogger), pfilter_(new ParticleFilter(cache_, tlogger_)) {
+}
 
+LocalizationModule::~LocalizationModule() {
+  delete pfilter_;
 }
 
 // Boilerplate
@@ -18,6 +23,7 @@ void LocalizationModule::specifyMemoryDependency() {
   requiresMemoryBlock("vision_frame_info");
   requiresMemoryBlock("robot_state");
   requiresMemoryBlock("game_state");
+  requiresMemoryBlock("vision_odometry");
 }
 
 // Boilerplate
@@ -27,6 +33,7 @@ void LocalizationModule::specifyMemoryBlocks() {
   getOrAddMemoryBlock(cache_.frame_info,"vision_frame_info");
   getOrAddMemoryBlock(cache_.robot_state,"robot_state");
   getOrAddMemoryBlock(cache_.game_state,"game_state");
+  getOrAddMemoryBlock(cache_.odometry,"vision_odometry");
 }
 
 
@@ -50,7 +57,7 @@ void LocalizationModule::initFromMemory() {
 void LocalizationModule::initFromWorld() {
   reInit();
   auto& self = cache_.world_object->objects_[cache_.robot_state->WO_SELF];
-  cache_.localization_mem->player = self.loc;
+  pfilter_->init(self.loc, self.orientation);
 }
 
 
@@ -76,7 +83,7 @@ Matrix<double, DIM_Z, 1> MeasurementFunction(Matrix<double, DIM_X, 1> x) {
 
 // Reinitialize from scratch
 void LocalizationModule::reInit() {
-  cache_.localization_mem->player = Point2D(-750,0);
+  pfilter_->init(Point2D(-750,0), 0.0f);
   cache_.localization_mem->state = decltype(cache_.localization_mem->state)::Zero();
   cache_.localization_mem->covariance = decltype(cache_.localization_mem->covariance)::Identity();
 
@@ -109,14 +116,26 @@ void LocalizationModule::reInit() {
   filter.x_err      = Matrix<double, DIM_X, DIM_X>::Identity() * 1000;
 }
 
+void LocalizationModule::moveBall(const Point2D& position) {
+  // Optional: This method is called when the player is moved within the localization
+  // simulator window.
+}
+
+void LocalizationModule::movePlayer(const Point2D& position, float orientation) {
+  // Optional: This method is called when the player is moved within the localization
+  // simulator window.
+}
+
 void LocalizationModule::processFrame() {
   auto& ball = cache_.world_object->objects_[WO_BALL];
   auto& self = cache_.world_object->objects_[cache_.robot_state->WO_SELF];
 
-  // Retrieve the robot's current location from localization memory
-  // and store it back into world objects
-  auto sloc = cache_.localization_mem->player;
-  self.loc = sloc;
+  // Process the current frame and retrieve our location/orientation estimate
+  // from the particle filter
+  pfilter_->processFrame();
+  self.loc = pfilter_->pose().translation;
+  self.orientation = pfilter_->pose().rotation;
+  log(40, "Localization Update: x=%2.f, y=%2.f, theta=%2.2f", self.loc.x, self.loc.y, self.orientation * RAD_T_DEG);
     
   //TODO: modify this block to use your Kalman filter implementation
   if(ball.seen) {
