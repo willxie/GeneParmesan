@@ -9,6 +9,17 @@ ParticleFilter::ParticleFilter(MemoryCache& cache, TextLogger*& tlogger)
 void ParticleFilter::init(Point2D loc, float orientation) {
   mean_.translation = loc;
   mean_.rotation = orientation;
+
+  // Initialize all particles randomly on the field
+  srand(time(NULL));
+  particles().resize(100);
+  for(auto& p : particles()) {
+      p.x = (rand() % (2*2500)) - 2500,
+      p.y = (rand() % (2*1250)) - 1250,
+//      p.t = rand() % 360;
+      p.t = 0;
+      p.w = 1;
+    }
 }
 
 void ParticleFilter::processFrame() {
@@ -19,17 +30,15 @@ void ParticleFilter::processFrame() {
   const auto& disp = cache_.odometry->displacement;
   log(41, "Updating particles from odometry: %2.f,%2.f @ %2.2f", disp.translation.x, disp.translation.y, disp.rotation * RAD_T_DEG);
   
-  // Generate random particles for demonstration
-  particles().resize(100);
-  auto frame = cache_.frame_info->frame_id;
+  // Step each particle deterministically by the odometry
   for(auto& p : particles()) {
-    p.x = rand_.sampleN(frame * 5, 250);
-    p.y = rand_.sampleN(0, 250);
-    p.t = rand_.sampleN(0, M_PI / 4);
-    p.w = rand_.sampleU();
+	  p.t += disp.rotation;
+      p.x += disp.x * cos(p.t);
+      p.y += disp.x * sin(p.t);
   }
 }
 
+// Pose is the average of all the particles
 const Pose2D& ParticleFilter::pose() const {
   if(dirty_) {
     // Compute the mean pose estimate
