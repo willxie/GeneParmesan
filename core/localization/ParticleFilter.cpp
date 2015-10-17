@@ -38,6 +38,18 @@ void ParticleFilter::processFrame() {
       p.y += disp.x * sin(p.t);
   }
 
+  // Add a little noise to each of the new positions
+  std::default_random_engine generator;
+  std::normal_distribution<double> x_distribution(0, X_STDDEV);
+  std::normal_distribution<double> y_distribution(0, Y_STDDEV);
+  for (auto& p : particles()) {
+	  double x_noise = x_distribution(generator);
+	  double y_noise = y_distribution(generator);
+
+	  p.x += x_noise;
+	  p.y += y_noise;
+  }
+
   static vector<WorldObjectType> beacon_ids = {
 		  WO_BEACON_YELLOW_BLUE,
 		  WO_BEACON_BLUE_YELLOW,

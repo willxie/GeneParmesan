@@ -7,6 +7,8 @@
 #include <localization/Logging.h>
 
 const int NUM_PARTICLES = 100;
+const double X_STDDEV = 20;
+const double Y_STDDEV = 10;
 
 class ParticleFilter {
   public:
