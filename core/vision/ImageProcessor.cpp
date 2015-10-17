@@ -688,6 +688,10 @@ void ImageProcessor::processFrame(){
 	  if (beacon_found) {
 //		  printf("Beacon (Left=%d, Right=%d, Top=%d, Bottom=%d)\n", beacon.left*4, beacon.right*4, beacon.top*2, beacon.bottom*2);
 		  beacons.push_back(beacon);
+	  } else {
+		  // Reset the beacon object
+		  auto& object = vblocks_.world_object->objects_[beacon_config.first];
+		  object.seen = false;
 	  }
   }
 
