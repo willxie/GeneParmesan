@@ -1,6 +1,7 @@
 #include <localization/ParticleFilter.h>
 #include <memory/FrameInfoBlock.h>
 #include <memory/OdometryBlock.h>
+#include <memory/WorldObjectBlock.h>
 
 ParticleFilter::ParticleFilter(MemoryCache& cache, TextLogger*& tlogger) 
   : cache_(cache), tlogger_(tlogger), dirty_(true) {
@@ -12,7 +13,7 @@ void ParticleFilter::init(Point2D loc, float orientation) {
 
   // Initialize all particles randomly on the field
   srand(time(NULL));
-  particles().resize(100);
+  particles().resize(10);
   for(auto& p : particles()) {
       p.x = (rand() % (2*2500)) - 2500,
       p.y = (rand() % (2*1250)) - 1250,
@@ -31,11 +32,40 @@ void ParticleFilter::processFrame() {
   log(41, "Updating particles from odometry: %2.f,%2.f @ %2.2f", disp.translation.x, disp.translation.y, disp.rotation * RAD_T_DEG);
   
   // Step each particle deterministically by the odometry
-  for(auto& p : particles()) {
+  for (auto& p : particles()) {
 	  p.t += disp.rotation;
       p.x += disp.x * cos(p.t);
       p.y += disp.x * sin(p.t);
+      p.w = 0;
   }
+
+  static vector<WorldObjectType> beacon_ids = {
+		  WO_BEACON_YELLOW_BLUE,
+		  WO_BEACON_BLUE_YELLOW,
+		  WO_BEACON_YELLOW_PINK,
+		  WO_BEACON_PINK_YELLOW,
+		  WO_BEACON_BLUE_PINK,
+		  WO_BEACON_PINK_BLUE
+  };
+
+  // Update particle weights with respect to how far they are from the seen beacons
+  for (auto& p : particles()) {
+
+	  for (auto beacon_id : beacon_ids) {
+		  auto& beacon = cache_.world_object->objects_[beacon_id];
+		  if (! beacon.seen)
+			  continue;
+
+		  double distance = sqrt(pow(abs(p.x-beacon.loc.x), 2) + pow(abs(p.y-beacon.loc.y), 2));
+		  p.w += (sqrt(pow(2500, 2) + pow(5000, 2)) - distance) / sqrt(pow(2500, 2) + pow(5000, 2));
+	  }
+  }
+
+  // View particle weights
+  for (auto& p : particles()) {
+	  cout << p.w << endl;
+  }
+  cout << endl;
 }
 
 // Pose is the average of all the particles
