@@ -13,14 +13,14 @@ void ParticleFilter::init(Point2D loc, float orientation) {
 
   // Initialize all particles randomly on the field
   srand(time(NULL));
-  particles().resize(10);
-  for(auto& p : particles()) {
+  particles().resize(NUM_PARTICLES);
+  for (auto& p : particles()) {
       p.x = (rand() % (2*2500)) - 2500,
       p.y = (rand() % (2*1250)) - 1250,
 //      p.t = rand() % 360;
       p.t = 0;
       p.w = 1;
-    }
+  }
 }
 
 void ParticleFilter::processFrame() {
@@ -36,7 +36,6 @@ void ParticleFilter::processFrame() {
 	  p.t += disp.rotation;
       p.x += disp.x * cos(p.t);
       p.y += disp.x * sin(p.t);
-      p.w = 0;
   }
 
   static vector<WorldObjectType> beacon_ids = {
@@ -48,16 +47,17 @@ void ParticleFilter::processFrame() {
 		  WO_BEACON_PINK_BLUE
   };
 
-  // Update particle weights with respect to how far they are from the seen beacons
+  // Update particle weights with respect to how far they are from the seen beacon
+  //
+  // Only take into account the last beacon seen right now
   for (auto& p : particles()) {
-
 	  for (auto beacon_id : beacon_ids) {
 		  auto& beacon = cache_.world_object->objects_[beacon_id];
 		  if (! beacon.seen)
 			  continue;
 
 		  double distance = sqrt(pow(abs(p.x-beacon.loc.x), 2) + pow(abs(p.y-beacon.loc.y), 2));
-		  p.w += (sqrt(pow(2500, 2) + pow(5000, 2)) - distance) / sqrt(pow(2500, 2) + pow(5000, 2));
+		  p.w = (sqrt(pow(2500, 2) + pow(5000, 2)) - distance) / sqrt(pow(2500, 2) + pow(5000, 2));
 	  }
   }
 
@@ -66,6 +66,34 @@ void ParticleFilter::processFrame() {
 	  cout << p.w << endl;
   }
   cout << endl;
+
+  // Get all weights
+  vector<double> weights;
+  for (auto p : particles()) {
+	  weights.push_back(p.w);
+  }
+
+  cout << "Weights" << endl;
+  for (auto weight : weights)
+	  cout << weight << endl;
+
+   // Sampling machinery
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::discrete_distribution<> d(weights.begin(), weights.end());
+
+  // Resampling
+  vector<Particle> winners;
+  for (int i = 0; i < NUM_PARTICLES; i++) {
+	  winners.push_back(particles()[d(gen)]);
+  }
+
+  cout << "Winners" << endl;
+  for (auto p : winners)
+	  cout << p.x << " " << p.y << endl;
+  cout << endl;
+
+  particles() = winners;
 }
 
 // Pose is the average of all the particles

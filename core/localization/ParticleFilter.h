@@ -6,6 +6,8 @@
 #include <memory/LocalizationBlock.h>
 #include <localization/Logging.h>
 
+const int NUM_PARTICLES = 100;
+
 class ParticleFilter {
   public:
     ParticleFilter(MemoryCache& cache, TextLogger*& tlogger);
