@@ -6,8 +6,8 @@
 #include <memory/LocalizationBlock.h>
 #include <localization/Logging.h>
 
-const int NUM_PARTICLES = 200;
-const double X_STDDEV = 1;
+const int NUM_PARTICLES = 100;
+const double X_STDDEV = 3;
 const double Y_STDDEV = X_STDDEV;
 const double T_STDDEV = .01;
 
