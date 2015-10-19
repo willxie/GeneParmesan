@@ -38,16 +38,21 @@ void ParticleFilter::processFrame() {
   std::normal_distribution<double> x_distribution(0, X_STDDEV);
   std::normal_distribution<double> y_distribution(0, Y_STDDEV);
   std::normal_distribution<double> t_distribution(0, T_STDDEV);
+
   for (auto& p : particles()) {
 	  double t_noise = t_distribution(generator);
 	  double x_noise = x_distribution(generator);
 
 	  // Step each particle deterministically move by the odometry
-	  p.t += disp.rotation;
-	  if (disp.x != 0) p.t += t_noise;
-
-      p.x += (disp.x + x_noise) * cos(p.t);
-      p.y += (disp.x + x_noise) * sin(p.t);
+	  if (disp.x == 0) {
+		x_noise = 0;
+		t_noise = 0;
+	  }
+//	  if (disp.rotation == 0) {
+//	  }
+	  p.t += disp.rotation + t_noise;
+	  p.x += (disp.x + x_noise) * cos(p.t);
+	  p.y += (disp.x + x_noise) * sin(p.t);
       p.w = 0;
 
       // Add a little noise to each of the new positions
@@ -127,7 +132,7 @@ void ParticleFilter::processFrame() {
   double population_quality_avg = population_quality_total / population_count;
 
 //  cout << "num particles: " << particles().size() << endl;
-  cout << "Population quality: " << population_quality_avg << endl;
+//  cout << "Population quality: " << population_quality_avg << endl;
 
 
   // Get all particle weights
@@ -149,6 +154,10 @@ void ParticleFilter::processFrame() {
 		  winners.push_back(particles()[d(gen)]);
 	  } else {
 		  Particle p;
+		  // TODO maybe do this in the beginning?
+		  float coin = -1+2*((float)rand())/RAND_MAX;
+		  if (coin > 0) {
+
 		  // Randomly generate particles only around the circumference of the circle around the last seen beacon
 		  do {
 			  // Solve for positions based on the last beacon position
@@ -163,13 +172,29 @@ void ParticleFilter::processFrame() {
 			  x_sign > 0 ? p.x = lastBeaconPtr->loc.x + x_offset : p.x = lastBeaconPtr->loc.x - x_offset;
 			  y_sign > 0 ? p.y = lastBeaconPtr->loc.y + y_offset : p.y = lastBeaconPtr->loc.y - y_offset;
 		  } while (!(MIN_FIELD_X < p.x && p.x < MAX_FIELD_X &&
-				   MIN_FIELD_Y < p.y && p.y < MAX_FIELD_Y)); // Make sure the point is within bound
-
-		  // Don't need noise because there's already noise in vision
+				  MIN_FIELD_Y < p.y && p.y < MAX_FIELD_Y)); // Make sure the point is within bound
 		  // Random angle
 		  p.t = (static_cast<double>(rand()) / RAND_MAX) * 2 * M_PI - M_PI;
 
+		  } else {
+
+		  // Find the point on the circle closest to the mean of the particle blob
+		  float target_x = lastBeaconPtr->loc.x;
+		  float target_y = lastBeaconPtr->loc.y;
+		  float current_x = mean_.x;
+		  float current_y = mean_.y;
+		  float dx = target_x - current_x;
+		  float dy = target_y - current_y;
+		  float to_beacon_distance = sqrt(pow(dx, 2) + pow(dy, 2));
+		  float to_target_distance = (to_beacon_distance - lastBeaconPtr->visionDistance);
+		  float angle = atan(dy / dx) + M_PI;
+		  p.x = current_x + to_target_distance * cos(angle);
+		  p.y = current_y + to_target_distance * sin(angle);
+		  p.t = mean_.t;
+
+		  }
 //		  randomParticle(p);
+
 		  winners.push_back(p);
 	  }
   }

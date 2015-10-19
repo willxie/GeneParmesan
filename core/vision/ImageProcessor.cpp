@@ -26,7 +26,6 @@ struct ImageProcessor::Blob {
 	bool used;
 };
 
-
 /**
  *  type is of the following:
  *
@@ -706,7 +705,7 @@ void ImageProcessor::processFrame(){
 
 	  // Linear model
 	  object.visionDistance = 0.811 * object.visionDistance + 100.14;
-	  printf("Beacon Distance: %f\n", object.visionDistance);
+//	  printf("Beacon Distance: %f\n", object.visionDistance);
 
 	  object.visionBearing = cmatrix_.bearing(position);
 	  object.seen = true;

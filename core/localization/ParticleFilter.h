@@ -6,10 +6,10 @@
 #include <memory/LocalizationBlock.h>
 #include <localization/Logging.h>
 
-const int NUM_PARTICLES = 100;
+const int NUM_PARTICLES = 300;
 const double X_STDDEV = 3;
 const double Y_STDDEV = X_STDDEV;
-const double T_STDDEV = .01;
+const double T_STDDEV = 0.05;
 
 const int MIN_FIELD_X = -2500;
 const int MAX_FIELD_X = 2500;
