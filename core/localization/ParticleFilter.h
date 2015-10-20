@@ -32,6 +32,7 @@ class ParticleFilter {
     }
 
     void randomParticle(Particle& p);
+    double calculateGaussianValue(double m, double s, double x);
 
   private:
     MemoryCache& cache_;

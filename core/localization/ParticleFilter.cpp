@@ -14,6 +14,11 @@ void ParticleFilter::randomParticle(Particle& p) {
     p.w = 0;
 }
 
+double ParticleFilter::calculateGaussianValue(double m, double s, double x) {
+    return ( 1 / ( s * sqrt(2*M_PI) ) ) * exp( -0.5 * pow( (x-m)/s, 2.0 ) );
+}
+
+
 void ParticleFilter::init(Point2D loc, float orientation) {
   mean_.translation = loc;
   mean_.rotation = orientation;
@@ -55,19 +60,7 @@ void ParticleFilter::processFrame() {
 	  p.y += (disp.x + x_noise) * sin(p.t);
       p.w = 0;
 
-      // Add a little noise to each of the new positions
-      // Noise should be a function of speed
-//	  double y_noise = y_distribution(generator);
-//	  if (disp.x != 0) p.x += x_noise;
-//	  if (disp.x != 0) p.y += y_noise;
-////	  if (disp.rotation != 0)
-//	  p.t += t_noise;
-
-//	  cout << p.t << " ";
   }
-//  cout << endl;
-
-
 
   static vector<WorldObjectType> beacon_ids = {
 		  WO_BEACON_YELLOW_BLUE,
@@ -96,9 +89,15 @@ void ParticleFilter::processFrame() {
 
 		  // Beacon distance
 		  double p_distance = sqrt(pow(abs(p.x-beacon.loc.x), 2) + pow(abs(p.y-beacon.loc.y), 2));
-		  double nao_distance = beacon.visionDistance;
-		  double max_distance = sqrt(pow(2500, 2) + pow(5000, 2));
-		  double distance_weight = (max_distance - abs(p_distance - nao_distance)) / max_distance;
+		  double v_distance = beacon.visionDistance;
+		  // Linear
+//		  double max_distance = sqrt(pow(2500, 2) + pow(5000, 2));
+//		  double distance_weight = (max_distance - abs(p_distance - v_distance)) / max_distance;
+		  // Gaussian
+		  double SDTDEV_POSITION_WEIGHT = 50;
+		  double p_gaussian = calculateGaussianValue(p_distance, SDTDEV_POSITION_WEIGHT, v_distance);
+		  double v_gaussian = calculateGaussianValue(v_distance, SDTDEV_POSITION_WEIGHT, v_distance);
+		  double distance_weight = (v_gaussian - fabs(p_gaussian - v_gaussian)) / v_gaussian;
 
 		  // Orientation
 		  double p_bearing = Point2D(p.x, p.y).getBearingTo(beacon.loc, p.t);
@@ -146,55 +145,68 @@ void ParticleFilter::processFrame() {
   std::mt19937 gen(rd());
   std::discrete_distribution<> d(weights.begin(), weights.end());
 
+  // Determine what proportion of the population is random
+  double random_population_ratio = (disp.x == 0) ? 0 : 0.01;
+  double fixed_population_ratio = 1 - random_population_ratio;
+  double P_RANDOM_BOUND = lastBeaconPtr->visionDistance; // Max distance random particles can be spawned from the mean
+
   // Resampling
   vector<Particle> winners;
   for (int i = 0; i < NUM_PARTICLES; i++) {
-//	  if (i < NUM_PARTICLES * population_quality_avg) {
-	  if (i < NUM_PARTICLES * 0.99) {
+	  if (i < NUM_PARTICLES * fixed_population_ratio) {
 		  winners.push_back(particles()[d(gen)]);
 	  } else {
 		  Particle p;
-		  // TODO maybe do this in the beginning?
 		  float coin = -1+2*((float)rand())/RAND_MAX;
 		  if (coin > 0) {
+			  int bound_reject_counter = 0;
+			  // Randomly generate particles only around the circumference of the circle around the last seen beacon
+			  do {
+				  // Solve for positions based on the last beacon position
+				  float x_sign = -1+2*((float)rand())/RAND_MAX;
+				  float y_sign = -1+2*((float)rand())/RAND_MAX;
 
-		  // Randomly generate particles only around the circumference of the circle around the last seen beacon
-		  do {
-			  // Solve for positions based on the last beacon position
-			  float x_sign = -1+2*((float)rand())/RAND_MAX;
-			  float y_sign = -1+2*((float)rand())/RAND_MAX;
+				  // Fix x solve y
+				  int x_offset = rand() % static_cast<int>(lastBeaconPtr->visionDistance);
+				  int y_offset = sqrt(pow(lastBeaconPtr->visionDistance, 2) - pow(x_offset, 2));
 
-			  // Fix x solve y
-			  int x_offset = rand() % static_cast<int>(lastBeaconPtr->visionDistance);
-			  int y_offset = sqrt(pow(lastBeaconPtr->visionDistance, 2) - pow(x_offset, 2));
+				  // Sign
+				  x_sign > 0 ? p.x = lastBeaconPtr->loc.x + x_offset : p.x = lastBeaconPtr->loc.x - x_offset;
+				  y_sign > 0 ? p.y = lastBeaconPtr->loc.y + y_offset : p.y = lastBeaconPtr->loc.y - y_offset;
+				  // Random angle
+				  p.t = (static_cast<double>(rand()) / RAND_MAX) * 2 * M_PI - M_PI;
 
-			  // Sign
-			  x_sign > 0 ? p.x = lastBeaconPtr->loc.x + x_offset : p.x = lastBeaconPtr->loc.x - x_offset;
-			  y_sign > 0 ? p.y = lastBeaconPtr->loc.y + y_offset : p.y = lastBeaconPtr->loc.y - y_offset;
-		  } while (!(MIN_FIELD_X < p.x && p.x < MAX_FIELD_X &&
-				  MIN_FIELD_Y < p.y && p.y < MAX_FIELD_Y)); // Make sure the point is within bound
-		  // Random angle
-		  p.t = (static_cast<double>(rand()) / RAND_MAX) * 2 * M_PI - M_PI;
+
+				  // Try to reject particles that are too far from the current mean_
+				  // This might not always work so stop after a few tries
+				  if (sqrt(pow(p.x-mean_.x, 2) + pow(p.y-mean_.y, 2)) < P_RANDOM_BOUND) {
+					  bound_reject_counter++;
+					  if (bound_reject_counter < 5) {
+						  continue;
+					  }
+				  }
+			  } while (!(MIN_FIELD_X < p.x && p.x < MAX_FIELD_X &&
+					  MIN_FIELD_Y < p.y && p.y < MAX_FIELD_Y)); // Make sure the point is within bound
 
 		  } else {
 
-		  // Find the point on the circle closest to the mean of the particle blob
-		  float target_x = lastBeaconPtr->loc.x;
-		  float target_y = lastBeaconPtr->loc.y;
-		  float current_x = mean_.x;
-		  float current_y = mean_.y;
-		  float dx = target_x - current_x;
-		  float dy = target_y - current_y;
-		  float to_beacon_distance = sqrt(pow(dx, 2) + pow(dy, 2));
-		  float to_target_distance = (to_beacon_distance - lastBeaconPtr->visionDistance);
-		  float angle = atan(dy / dx) + M_PI;
-		  p.x = current_x + to_target_distance * cos(angle);
-		  p.y = current_y + to_target_distance * sin(angle);
-		  p.t = mean_.t;
+			  // Find the point on the circle closest to the mean of the particle blob
+			  float target_x = lastBeaconPtr->loc.x;
+			  float target_y = lastBeaconPtr->loc.y;
+			  float current_x = mean_.x;
+			  float current_y = mean_.y;
+			  float dx = target_x - current_x;
+			  float dy = target_y - current_y;
+			  float to_beacon_distance = sqrt(pow(dx, 2) + pow(dy, 2));
+			  float to_target_distance = (to_beacon_distance - lastBeaconPtr->visionDistance);
+			  float angle = atan(dy / dx) + M_PI;
+			  p.x = current_x + to_target_distance * cos(angle);
+			  p.y = current_y + to_target_distance * sin(angle);
+			  p.t = mean_.t;
 
 		  }
-//		  randomParticle(p);
 
+//		  randomParticle(p);
 		  winners.push_back(p);
 	  }
   }
