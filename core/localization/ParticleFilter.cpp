@@ -41,28 +41,32 @@ void ParticleFilter::processFrame() {
 
   std::random_device rd;
   std::mt19937 generator(rd());
+  std::normal_distribution<double> v_distribution(0, V_STDDEV);
   std::normal_distribution<double> x_distribution(0, X_STDDEV);
   std::normal_distribution<double> y_distribution(0, Y_STDDEV);
   std::normal_distribution<double> t_distribution(0, T_STDDEV);
 
   for (auto& p : particles()) {
 	  double t_noise = t_distribution(generator);
+	  double v_noise = v_distribution(generator);
 	  double x_noise = x_distribution(generator);
-
-//	  x_noise = 0;
-//	  t_noise = 0;
+	  double y_noise = y_distribution(generator);
 
 	  // Step each particle deterministically move by the odometry
 	  if (disp.x == 0) {
-		  x_noise = 0;
+		  v_noise = 0;
 		  t_noise = 0;
 	  }
 	  if (disp.rotation == 0) {
 		  t_noise = 0;
 	  }
+	  if (disp.x == 0 && disp.rotation == 0) {
+		  x_noise = 0;
+		  y_noise = 0;
+	  }
 	  p.t += disp.rotation + t_noise;
-	  p.x += (disp.x + x_noise) * cos(p.t);
-	  p.y += (disp.x + x_noise) * sin(p.t);
+	  p.x += (0.8*disp.x + v_noise) * cos(p.t) + x_noise;
+	  p.y += (0.8*disp.x + v_noise) * sin(p.t) + y_noise;
       p.w = 0;
 
   }
@@ -99,7 +103,6 @@ void ParticleFilter::processFrame() {
 //		  double max_distance = sqrt(pow(2500, 2) + pow(5000, 2));
 //		  double distance_weight = (max_distance - abs(p_distance - v_distance)) / max_distance;
 		  // Gaussian
-		  double SDTDEV_POSITION_WEIGHT = 50;
 		  double p_gaussian = calculateGaussianValue(p_distance, SDTDEV_POSITION_WEIGHT, v_distance);
 		  double v_gaussian = calculateGaussianValue(v_distance, SDTDEV_POSITION_WEIGHT, v_distance);
 		  double distance_weight = (v_gaussian - fabs(p_gaussian - v_gaussian)) / v_gaussian;
@@ -128,16 +131,13 @@ void ParticleFilter::processFrame() {
 	  return;
   }
 
-  if (disp.x == 0) {
+  if (!(disp.x != 0 || disp.rotation != 0)) {
 	  return;
   }
 
+
   // Quality is the best if approaches 1
   double population_quality_avg = population_quality_total / population_count;
-
-//  cout << "num particles: " << particles().size() << endl;
-//  cout << "Population quality: " << population_quality_avg << endl;
-
 
   // Get all particle weights
   vector<double> weights;
@@ -151,7 +151,8 @@ void ParticleFilter::processFrame() {
   std::discrete_distribution<> d(weights.begin(), weights.end());
 
   // Determine what proportion of the population is random
-  double random_population_ratio = (disp.x == 0) ? 0 : 0.01;
+//  double random_population_ratio = (disp.x == 0) ? 0 : 0.01;
+  double random_population_ratio = 0.01;
   double fixed_population_ratio = 1 - random_population_ratio;
   double P_RANDOM_BOUND = lastBeaconPtr->visionDistance; // Max distance random particles can be spawned from the mean
 
@@ -163,7 +164,7 @@ void ParticleFilter::processFrame() {
 	  } else {
 		  Particle p;
 		  float coin = -1+2*((float)rand())/RAND_MAX;
-		  if (coin > 0) {
+		  if (coin > 0.75) {
 			  int bound_reject_counter = 0;
 			  // Randomly generate particles only around the circumference of the circle around the last seen beacon
 			  do {
@@ -208,7 +209,7 @@ void ParticleFilter::processFrame() {
 			  float angle = atan(dy / dx) + M_PI;
 			  p.x = current_x + to_target_distance * cos(angle);
 			  p.y = current_y + to_target_distance * sin(angle);
-			  p.t = mean_.t;
+			  p.t = (static_cast<double>(rand()) / RAND_MAX) * 2 * M_PI - M_PI;
 
 		  }
 

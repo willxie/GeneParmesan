@@ -393,7 +393,7 @@ class SpinToCenter(Node):
     x = nao.loc.x
     y = nao.loc.y
 
-    speed = 0.5
+    speed = 0.4
 
     dx = 0 - x
     dy = 0 - y
@@ -416,17 +416,20 @@ class SpinToCenter(Node):
     # Take the robot's orientation into account
     angle -= t
 
-    # vel_turn = 0.4     # Constant spin velocity
-    vel_turn = 0.0     # Constant spin velocity
+    vel_turn = 0.3     # Constant spin velocity
+    # vel_turn = 0.0     # Constant spin velocity
     vel_y = -(speed * math.sin(angle))
     vel_x = +(speed * math.cos(angle))
 
-    print("vel_x: {}\t    vel_y: {}".format(vel_x, vel_y))
+    print("Robot x: {}\t y:{}\t t: {}".format(x, y, t))
+    # print("vel_x: {}\t    vel_y: {}\t     angle: {}".format(vel_x, vel_y, angle))
 
+    vel_x = 0
+    vel_y = 0
     commands.setHeadTilt(0)   # Tilt head up so we can see goal (default = -22)
     commands.setWalkVelocity(vel_x, vel_y, vel_turn)
 
-    if self.getTime() > 5.0:
+    if self.getTime() > 30.0:
       self.finish()
 
 
@@ -491,7 +494,7 @@ class Playing(LoopingStateMachine):
         self.finish()
 
   def setup(self):
-    memory.speech.say("Let's go'!")
+    memory.speech.say("Let's localize'!")
 
     # Movements
     stand = Stand()

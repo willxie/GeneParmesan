@@ -3,7 +3,7 @@ int CommInfo::TEAM_UDP_PORT = 0;
 /// @ingroup communications
 /// Port numbers for the UT NAO Tool
 const int CommInfo::TOOL_UDP_PORT = 78790;
-const int CommInfo::TOOL_TCP_PORT = 53666;
+const int CommInfo::TOOL_TCP_PORT = 54000;
 
 /// @ingroup communications
 /// IP addresses for the team, tool, and game controller
