@@ -370,6 +370,6 @@ class Playing(LoopingStateMachine):
     walk = Walk()
 
 
-    # self.trans(stand, C, walk, C, turn , C, walk)
-    self.trans(stand, C, walk, C, stand_2, C, turn, C, stand)
-    # self.trans(turn, S("repeat"), turn)
+    # self.trans(stand, C, walk, C, stand_2, C, turn, C, stand)
+
+    self.trans(stand, C, walk, C, walk)

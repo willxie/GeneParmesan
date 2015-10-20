@@ -24,7 +24,7 @@ void ParticleFilter::init(Point2D loc, float orientation) {
   mean_.rotation = orientation;
 
   // Initialize all particles randomly on the field
-  srand(time(NULL));
+//  srand(time(NULL));
   particles().resize(NUM_PARTICLES);
   for (auto& p : particles()) {
 	  randomParticle(p);
@@ -39,7 +39,8 @@ void ParticleFilter::processFrame() {
   const auto& disp = cache_.odometry->displacement;
   log(41, "Updating particles from odometry: %2.f,%2.f @ %2.2f", disp.translation.x, disp.translation.y, disp.rotation * RAD_T_DEG);
 
-  std::default_random_engine generator;
+  std::random_device rd;
+  std::mt19937 generator(rd());
   std::normal_distribution<double> x_distribution(0, X_STDDEV);
   std::normal_distribution<double> y_distribution(0, Y_STDDEV);
   std::normal_distribution<double> t_distribution(0, T_STDDEV);
@@ -48,13 +49,17 @@ void ParticleFilter::processFrame() {
 	  double t_noise = t_distribution(generator);
 	  double x_noise = x_distribution(generator);
 
+//	  x_noise = 0;
+//	  t_noise = 0;
+
 	  // Step each particle deterministically move by the odometry
 	  if (disp.x == 0) {
-		x_noise = 0;
-		t_noise = 0;
+		  x_noise = 0;
+		  t_noise = 0;
 	  }
-//	  if (disp.rotation == 0) {
-//	  }
+	  if (disp.rotation == 0) {
+		  t_noise = 0;
+	  }
 	  p.t += disp.rotation + t_noise;
 	  p.x += (disp.x + x_noise) * cos(p.t);
 	  p.y += (disp.x + x_noise) * sin(p.t);
@@ -123,7 +128,7 @@ void ParticleFilter::processFrame() {
 	  return;
   }
 
-  if (disp.x == 0 && disp.rotation == 0) {
+  if (disp.x == 0) {
 	  return;
   }
 
@@ -141,8 +146,8 @@ void ParticleFilter::processFrame() {
   }
 
   // Sampling machinery
-  std::random_device rd;
-  std::mt19937 gen(rd());
+//  std::random_device rd;
+//  std::mt19937 gen(rd());
   std::discrete_distribution<> d(weights.begin(), weights.end());
 
   // Determine what proportion of the population is random
@@ -154,7 +159,7 @@ void ParticleFilter::processFrame() {
   vector<Particle> winners;
   for (int i = 0; i < NUM_PARTICLES; i++) {
 	  if (i < NUM_PARTICLES * fixed_population_ratio) {
-		  winners.push_back(particles()[d(gen)]);
+		  winners.push_back(particles()[d(generator)]);
 	  } else {
 		  Particle p;
 		  float coin = -1+2*((float)rand())/RAND_MAX;
