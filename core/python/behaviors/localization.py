@@ -422,6 +422,8 @@ class SpinToCenter(Node):
     vel_x = +(speed * math.cos(angle))
 
     print("vel_x: {}\t    vel_y: {}".format(vel_x, vel_y))
+
+    commands.setHeadTilt(0)   # Tilt head up so we can see goal (default = -22)
     commands.setWalkVelocity(vel_x, vel_y, vel_turn)
 
     if self.getTime() > 5.0:
