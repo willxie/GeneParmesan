@@ -178,6 +178,7 @@ void ParticleFilter::processFrame() {
 				  // Sign
 				  x_sign > 0 ? p.x = lastBeaconPtr->loc.x + x_offset : p.x = lastBeaconPtr->loc.x - x_offset;
 				  y_sign > 0 ? p.y = lastBeaconPtr->loc.y + y_offset : p.y = lastBeaconPtr->loc.y - y_offset;
+
 				  // Random angle
 				  p.t = (static_cast<double>(rand()) / RAND_MAX) * 2 * M_PI - M_PI;
 

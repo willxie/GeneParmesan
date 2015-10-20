@@ -77,7 +77,7 @@ class PursueBeacon(Node):
         beacon = memory.world_objects.getObjPtr(key)
         if beacon.seen:
           PursueBeacon.beacon = beacon
-    
+
     # No beacon seen? It's a trap!
     if not PursueBeacon.beacon:
       return
@@ -383,6 +383,52 @@ class TrackBall(Node):
     if self.getTime() > 3.0:
       self.postSignal(self.inSignal())
 
+
+class SpinToCenter(Node):
+  def run(self):
+    nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
+
+    # Calculate the angle of the vector to origin in robot's frame
+    t = nao.orientation
+    x = nao.loc.x
+    y = nao.loc.y
+
+    speed = 0.5
+
+    dx = 0 - x
+    dy = 0 - y
+
+    angle = math.atan(dy /dx)
+
+    # Quadrant 1
+    if (x > 0 and y > 0):
+        angle += math.pi
+    # Quadrant 2
+    if (x < 0 and y > 0):
+        angle += 0
+    # Quadrant 3
+    if (x < 0 and y < 0):
+        angle += 0
+    # Quadrant 4
+    if (x > 0 and y < 0):
+        angle += math.pi
+
+    # Take the robot's orientation into account
+    angle -= t
+
+    # vel_turn = 0.4     # Constant spin velocity
+    vel_turn = 0.0     # Constant spin velocity
+    vel_y = -(speed * math.sin(angle))
+    vel_x = +(speed * math.cos(angle))
+
+    print("vel_x: {}\t    vel_y: {}".format(vel_x, vel_y))
+    commands.setWalkVelocity(vel_x, vel_y, vel_turn)
+
+    if self.getTime() > 5.0:
+      self.finish()
+
+
+
 # Button behaviors
 class Ready(Task):
   def run(self):
@@ -404,7 +450,7 @@ class LeftPan(Task):
     commands.setWalkVelocity(.3, 0, .3)
 
     nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
-    # print nao.loc.x, nao.loc.y, math.tan(nao.orientation) 
+    # print nao.loc.x, nao.loc.y, math.tan(nao.orientation)
     facing_center = abs(nao.loc.x*math.tan(nao.orientation) - nao.loc.y)
     print 'Facing center', nao.orientation, facing_center
 
@@ -417,7 +463,7 @@ class RightPan(Task):
     commands.setWalkVelocity(.3, 0, .3)
 
     nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
-    # print nao.loc.x, nao.loc.y, math.tan(nao.orientation) 
+    # print nao.loc.x, nao.loc.y, math.tan(nao.orientation)
     facing_center = abs(nao.loc.x*math.tan(nao.orientation) - nao.loc.y)
     print 'Facing center', nao.orientation, facing_center
 
@@ -450,6 +496,7 @@ class Playing(LoopingStateMachine):
     turn = Turn()
     pursue_beacon = PursueBeacon()
     walk = Walk()
+    stc = SpinToCenter()
 
-    self.trans(stand, C, turn, C, pursue_beacon, C, turn)
-    self.setFinish(None)
+    self.trans(stand, C, stc, C, stand)
+    # self.trans(stand, C, turn, C, pursue_beacon, C, turn)
