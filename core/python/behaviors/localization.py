@@ -404,9 +404,9 @@ class LeftPan(Task):
     commands.setWalkVelocity(.3, 0, .3)
 
     nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
-    print nao.loc.x, nao.loc.y, math.tan(nao.orientation) 
+    # print nao.loc.x, nao.loc.y, math.tan(nao.orientation) 
     facing_center = abs(nao.loc.x*math.tan(nao.orientation) - nao.loc.y)
-    print 'Facing center', facing_center
+    print 'Facing center', nao.orientation, facing_center
 
     if self.getTime() > 3.0:
       self.finish()
@@ -417,9 +417,9 @@ class RightPan(Task):
     commands.setWalkVelocity(.3, 0, .3)
 
     nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
-    print nao.loc.x, nao.loc.y, math.tan(nao.orientation) 
+    # print nao.loc.x, nao.loc.y, math.tan(nao.orientation) 
     facing_center = abs(nao.loc.x*math.tan(nao.orientation) - nao.loc.y)
-    print 'Facing center', facing_center
+    print 'Facing center', nao.orientation, facing_center
 
     if self.getTime() > 3.0:
       self.finish()
