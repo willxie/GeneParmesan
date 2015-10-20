@@ -1,3 +1,5 @@
+import math
+
 import memory, pose, commands, cfgstiff, core
 from task import Task
 from state_machine import *
@@ -54,8 +56,53 @@ class Turn(Node):
       # else:
       #   self.postSignal("repeat")
 
+class PursueBeacon(Node):
+  beacon = None
+  def run(self):
+    # memory.speech.say('Pursuing beacon!')
+    if self.getTime() > 2.0:
+      self.finish()
 
+    # If it's our first time through this function then record which beacon is
+    # in view
+    if not PursueBeacon.beacon:
+      beacon_list = [ core.WO_BEACON_BLUE_YELLOW,
+                        core.WO_BEACON_YELLOW_BLUE,
+                        core.WO_BEACON_BLUE_PINK,
+                        core.WO_BEACON_PINK_BLUE,
+                        core.WO_BEACON_PINK_YELLOW,
+                        core.WO_BEACON_YELLOW_PINK]
 
+      for key in beacon_list:
+        beacon = memory.world_objects.getObjPtr(key)
+        if beacon.seen:
+          PursueBeacon.beacon = beacon
+    
+    # No beacon seen? It's a trap!
+    if not PursueBeacon.beacon:
+      return
+
+    self.resetTime()
+
+    # Stop if we get too close to the beacon
+    CLOSENESS_THRESHOLD = 500
+    print PursueBeacon.beacon.visionDistance
+    if PursueBeacon.beacon.visionDistance < CLOSENESS_THRESHOLD:
+      self.finish()
+
+    # Calculate forward velocity
+    beacon_distance = PursueBeacon.beacon.visionDistance / 1000
+    DISTANCE_THRESHOLD = 1.5
+    beacon_distance = min(beacon_distance, DISTANCE_THRESHOLD)
+    DISTANCE_CONSTANT = 2/3.
+    forward_vel = beacon_distance * DISTANCE_CONSTANT
+    MAX_FORWARD_VELOCITY = .50
+    forward_vel *= MAX_FORWARD_VELOCITY
+    MIN_FORWARD_VELOCITY = 0.35
+    forward_vel = max(MIN_FORWARD_VELOCITY, forward_vel)
+
+    # Walk towards the beacon!
+    commands.setWalkVelocity(forward_vel, 0, PursueBeacon.beacon.visionBearing)
 
 class ScanLeft(Node):
   def run(self):
@@ -351,6 +398,41 @@ class Set(Task):
       memory.speech.say("I am set")
       self.finish()
 
+class LeftPan(Task):
+  def run(self):
+    commands.setHeadPan(1, 1)
+    commands.setWalkVelocity(.3, 0, .3)
+
+    nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
+    print nao.loc.x, nao.loc.y, math.tan(nao.orientation) 
+    facing_center = abs(nao.loc.x*math.tan(nao.orientation) - nao.loc.y)
+    print 'Facing center', facing_center
+
+    if self.getTime() > 3.0:
+      self.finish()
+
+class RightPan(Task):
+  def run(self):
+    commands.setHeadPan(-1, 1)
+    commands.setWalkVelocity(.3, 0, .3)
+
+    nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
+    print nao.loc.x, nao.loc.y, math.tan(nao.orientation) 
+    facing_center = abs(nao.loc.x*math.tan(nao.orientation) - nao.loc.y)
+    print 'Facing center', facing_center
+
+    if self.getTime() > 3.0:
+      self.finish()
+
+class Set(LoopingStateMachine):
+  def setup(self):
+    # Movements
+    left_pan = LeftPan()
+    right_pan = RightPan()
+
+    self.trans(left_pan, C, right_pan, C, left_pan)
+    self.setFinish(None)
+
 class Playing(LoopingStateMachine):
   """Forward Walking and Turn in Place"""
 
@@ -365,11 +447,9 @@ class Playing(LoopingStateMachine):
 
     # Movements
     stand = Stand()
-    stand_2 = Stand()
     turn = Turn()
+    pursue_beacon = PursueBeacon()
     walk = Walk()
 
-
-    # self.trans(stand, C, walk, C, turn , C, walk)
-    self.trans(stand, C, walk, C, stand_2, C, turn, C, stand)
-    # self.trans(turn, S("repeat"), turn)
+    self.trans(stand, C, turn, C, pursue_beacon, C, turn)
+    self.setFinish(None)
