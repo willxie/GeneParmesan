@@ -527,7 +527,7 @@ class SpinLocalize(Node):
                     core.WO_BEACON_PINK_YELLOW,
                     core.WO_BEACON_YELLOW_PINK]
 
-    commands.setHeadTilt(-10)   # Tilt head up so we can see goal (default = -22)
+    commands.setHeadTilt(-18)   # Tilt head up so we can see goal (default = -22)
     # commands.setWalkVelocity(0, 0, -0.15)
 
     # if self.getTime() > 5.0:
@@ -591,23 +591,23 @@ def toCenter(self, dir):
     # else:
     #   vel_turn -= turn_speed
 
+    commands.setHeadTilt(-18)   # Tilt head up so we can see goal (default = -22)
     commands.setWalkVelocity(vel_x, vel_y, vel_turn)
-    commands.setHeadPan(dir * 1.5, 1)
+    # commands.setHeadPan(dir * 1.5, 1)
 
     print("distance: {}\t\t bearing: {}".format(distance, bearing))
 
     # Kidnapped relocalize
     if (not memory.body_model.feet_on_ground_):
+      ToCenterBoth.num_times_no_beacon = 0
       self.postSignal("spin")
       print("flying")
 
     if (distance < 100):
+      ToCenterBoth.num_times_no_beacon = 0
       self.postSignal("spin")
 
-    if self.getTime() > 2.0:
-      self.finish()
-
-
+# Dont use
 class ToCenterLeft(Node):
   def run(self):
     if self.getTime() < 2:
@@ -615,12 +615,34 @@ class ToCenterLeft(Node):
 
     toCenter(self, 1)
 
+# Dont use
 class ToCenterRight(Node):
   def run(self):
     if self.getTime() < 2:
       memory.speech.say("right")
 
     toCenter(self, -1)
+
+class ToCenterBoth(Node):
+  num_times_no_beacon = 0
+  def run(self):
+    if any(tuple(visible_beacons())):
+      ToCenterBoth.num_times_no_beacon = 0
+    else:
+      ToCenterBoth.num_times_no_beacon += 1
+
+    if ToCenterBoth.num_times_no_beacon > 30 * 5:
+      self.postSignal("spin")
+
+    if (int(self.getTime()) % 4) >= 2:
+      memory.speech.say("left")
+      commands.setHeadPan(1.5, 1.5)
+    else:
+      memory.speech.say("right")
+      commands.setHeadPan(-1.5, 1.5)
+
+    toCenter(self, 0)
+
 
 # Button behaviors
 class Ready(Task):
@@ -732,15 +754,17 @@ class Playing(LoopingStateMachine):
   def setup(self):
     memory.speech.say("Let's localize'!")
 
+    # left = ToCenterLeft()
+    # right = ToCenterRight()
+
     # Movements
     stand = Stand()
     sl = SpinLocalize()
-    left = ToCenterLeft()
-    right = ToCenterRight()
+    both = ToCenterBoth()
 
-    self.trans(stand, C, sl, C, left, C, right, C, left)
-    self.trans(left, S("spin"), sl)
-    self.trans(right, S("spin"), sl)
+    # self.trans(stand, C, sl, C, left, C, right, C, left)
+    self.trans(stand, C, sl, C, both, C, sl)
+    self.trans(both, S("spin"), sl)
 
 
 
