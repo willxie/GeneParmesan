@@ -129,12 +129,17 @@ void LocalizationModule::movePlayer(const Point2D& position, float orientation) 
 void LocalizationModule::processFrame() {
   auto& ball = cache_.world_object->objects_[WO_BALL];
   auto& self = cache_.world_object->objects_[cache_.robot_state->WO_SELF];
+  auto& origin = cache_.world_object->objects_[WO_TEAM_COACH];
 
   // Process the current frame and retrieve our location/orientation estimate
   // from the particle filter
   pfilter_->processFrame();
   self.loc = pfilter_->pose().translation;
   self.orientation = pfilter_->pose().rotation;
+  origin.loc = Point2D(0, 0);
+  origin.orientation = Point2D(self.loc.x, self.loc.y).getBearingTo(origin.loc, self.orientation);
+  origin.distance = sqrt(pow(self.loc.x-origin.loc.x, 2) + pow(self.loc.y-origin.loc.y, 2));
+
   log(40, "Localization Update: x=%2.f, y=%2.f, theta=%2.2f", self.loc.x, self.loc.y, self.orientation * RAD_T_DEG);
     
   //TODO: modify this block to use your Kalman filter implementation
