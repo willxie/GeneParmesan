@@ -189,7 +189,9 @@ void ParticleFilter::processFrame() {
 				  if (sqrt(pow(p.x-mean_.x, 2) + pow(p.y-mean_.y, 2)) < P_RANDOM_BOUND) {
 					  bound_reject_counter++;
 					  if (bound_reject_counter < 5) {
-						  continue;
+						  // Fuck it. Just choose a random particle.
+						  randomParticle(p);
+						  break;
 					  }
 				  }
 			  } while (!(MIN_FIELD_X < p.x && p.x < MAX_FIELD_X &&

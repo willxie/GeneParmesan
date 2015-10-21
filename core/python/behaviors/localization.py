@@ -4,6 +4,18 @@ import memory, pose, commands, cfgstiff, core
 from task import Task
 from state_machine import *
 
+BEACON_LIST = [ core.WO_BEACON_BLUE_YELLOW,
+                core.WO_BEACON_YELLOW_BLUE,
+                core.WO_BEACON_BLUE_PINK,
+                core.WO_BEACON_PINK_BLUE,
+                core.WO_BEACON_PINK_YELLOW,
+                core.WO_BEACON_YELLOW_PINK]
+
+def visible_beacons():
+  """Yields a boolean list of all beacons seen"""
+  for key in BEACON_LIST:
+    beacon = memory.world_objects.getObjPtr(key)
+    yield beacon.seen
 
 # Sub tasks
 class Stand(Node):
@@ -30,23 +42,45 @@ class Walk(Node):
     if self.getTime() > 15.0:
       self.finish()
 
+class Spin(Node):
+  direction = 1
+  LEFT, RIGHT = -1, 1
+  def run(self):
+    """Spin until we see at least two beacons
+
+    While at the same time turning Cheesy's head
+
+    """
+    # Do we see at least two beacons?
+    global visible_beacons
+    seen_beacons = tuple(visible_beacons())
+    if sum(seen_beacons) >= 2:
+      self.finish()
+
+    # Turn head in the other direction
+    if self.getTime >= 3.0:
+      self.resetTime()
+
+      if Spin.direction == Spin.LEFT:
+        Spin.direction = Spin.RIGHT
+      else:
+        Spin.direction = Spin.LEFT
+
+    # Look left or right
+    commands.setHeadPan(Spin.direction, 1)
+
+    memory.speech.say('Spinning!')
+    commands.setWalkVelocity(0, 0, 0.3)
 
 class Turn(Node):
   def run(self):
-    beacon_list = [ core.WO_BEACON_BLUE_YELLOW,
-                    core.WO_BEACON_YELLOW_BLUE,
-                    core.WO_BEACON_BLUE_PINK,
-                    core.WO_BEACON_PINK_BLUE,
-                    core.WO_BEACON_PINK_YELLOW,
-                    core.WO_BEACON_YELLOW_PINK]
-
     commands.setHeadTilt(-10)   # Tilt head up so we can see goal (default = -22)
     memory.speech.say('Turning!')
     commands.setWalkVelocity(0, 0, -0.15)
 
     if self.getTime() > 5.0:
       any_beacon_seen = False
-      for key in beacon_list:
+      for key in BEACON_LIST:
         beacon = memory.world_objects.getObjPtr(key)
         if beacon.seen:
           any_beacon_seen = True
@@ -66,14 +100,7 @@ class PursueBeacon(Node):
     # If it's our first time through this function then record which beacon is
     # in view
     if not PursueBeacon.beacon:
-      beacon_list = [ core.WO_BEACON_BLUE_YELLOW,
-                        core.WO_BEACON_YELLOW_BLUE,
-                        core.WO_BEACON_BLUE_PINK,
-                        core.WO_BEACON_PINK_BLUE,
-                        core.WO_BEACON_PINK_YELLOW,
-                        core.WO_BEACON_YELLOW_PINK]
-
-      for key in beacon_list:
+      for key in BEACON_LIST:
         beacon = memory.world_objects.getObjPtr(key)
         if beacon.seen:
           PursueBeacon.beacon = beacon
@@ -461,15 +488,15 @@ class SpinToCenter(Node):
 # Spin few times so that the robot get a good idea of where it is
 class SpinLocalize(Node):
   def run(self):
-    memory.speech.say("Spin")
+    memory.speech.say("Spining")
 
-    nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
-    t = nao.orientation
-    x = nao.loc.x
-    y = nao.loc.y
-    print("Robot x: {}\t y:{}\t t: {}".format(x, y, t))
-    origin = memory.world_objects.getObjPtr(core.WO_TEAM_COACH)
-    print("bearing: {}".format(origin.orientation))
+    # nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
+    # t = nao.orientation
+    # x = nao.loc.x
+    # y = nao.loc.y
+    # print("Robot x: {}\t y:{}\t t: {}".format(x, y, t))
+    # origin = memory.world_objects.getObjPtr(core.WO_TEAM_COACH)
+    # print("bearing: {}".format(origin.orientation))
 
     beacon_list = [ core.WO_BEACON_BLUE_YELLOW,
                     core.WO_BEACON_YELLOW_BLUE,
@@ -479,15 +506,14 @@ class SpinLocalize(Node):
                     core.WO_BEACON_YELLOW_PINK]
 
     commands.setHeadTilt(-10)   # Tilt head up so we can see goal (default = -22)
+    # commands.setWalkVelocity(0, 0, -0.15)
 
-    commands.setWalkVelocity(0, 0, -0.15)
-
-    if self.getTime() > 5.0:
-      any_beacon_seen = False
-      for key in beacon_list:
-        beacon = memory.world_objects.getObjPtr(key)
-        if beacon.seen:
-          any_beacon_seen = True
+    # if self.getTime() > 5.0:
+    #   any_beacon_seen = False
+    #   for key in beacon_list:
+    #     beacon = memory.world_objects.getObjPtr(key)
+    #     if beacon.seen:
+    #       any_beacon_seen = True
 
     vel_x = 0
     vel_y = 0
@@ -521,6 +547,7 @@ class ToCenterLeft(Node):
 
     origin = memory.world_objects.getObjPtr(core.WO_TEAM_COACH)
     bearing = origin.orientation
+    distance = origin.distance
     print("bearing: {}".format(origin.orientation))
 
     if (bearing > 0):
@@ -531,11 +558,8 @@ class ToCenterLeft(Node):
     commands.setWalkVelocity(vel_x, vel_y, vel_turn)
     commands.setHeadPan(1.5, 1)
 
-
     if self.getTime() > 2.0:
       self.finish()
-
-
 
 class ToCenterRight(Node):
   def run(self):
@@ -581,6 +605,86 @@ class Set(Task):
       memory.speech.say("I am set")
       self.finish()
 
+class LeftPan(Task):
+  def run(self):
+    commands.setHeadPan(1, 1)
+
+    nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
+    # print nao.loc.x, nao.loc.y, math.tan(nao.orientation)
+    facing_center = abs(nao.loc.x*math.tan(nao.orientation) - nao.loc.y)
+    print 'Facing center', nao.orientation, facing_center
+
+    if self.getTime() > 3.0:
+      self.finish()
+
+class RightPan(Task):
+  def run(self):
+    commands.setHeadPan(-1, 1)
+
+    nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
+    # print nao.loc.x, nao.loc.y, math.tan(nao.orientation)
+    facing_center = abs(nao.loc.x*math.tan(nao.orientation) - nao.loc.y)
+    print 'Facing center', nao.orientation, facing_center
+
+    if self.getTime() > 3.0:
+      self.finish()
+
+class WalkToCenter(Task):
+  direction = 1
+  LEFT, RIGHT = -1, 1
+  def run(self):
+    # Turn head in the other direction
+    if self.getTime >= 3.0:
+      self.resetTime()
+
+      if WalkToCenter.direction == WalkToCenter.LEFT:
+        WalkToCenter.direction = WalkToCenter.RIGHT
+      else:
+        WalkToCenter.direction = WalkToCenter.LEFT
+
+    # Look left or right
+    commands.setHeadPan(WalkToCenter.direction, 1)
+
+    # Calculate the angle of the vector to origin in robot's frame
+    nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
+    t, x, y = nao.orientation, nao.loc.x, nao.loc.y
+    speed = 0.5
+    dx, dy = 0-x, 0-y
+    angle = math.atan(dy / dx)
+
+    # Quadrant 1
+    if (x > 0 and y > 0):
+        angle += math.pi
+    # Quadrant 2
+    if (x < 0 and y > 0):
+        angle += 0
+    # Quadrant 3
+    if (x < 0 and y < 0):
+        angle += 0
+    # Quadrant 4
+    if (x > 0 and y < 0):
+        angle += math.pi
+
+    # Take the robot's orientation into account
+    angle -= t
+
+    # Calculate forward velocity
+    distance_to_center = math.sqrt(x**2 + y**2) / 1000
+    DISTANCE_THRESHOLD = 1.5
+    distance_to_center = min(distance_to_center, DISTANCE_THRESHOLD)
+    DISTANCE_CONSTANT = 2/3.
+    forward_vel = distance_to_center * DISTANCE_CONSTANT
+    MAX_FORWARD_VELOCITY = .50
+    forward_vel *= MAX_FORWARD_VELOCITY
+    MIN_FORWARD_VELOCITY = 0.35
+    forward_vel = max(MIN_FORWARD_VELOCITY, forward_vel)
+
+    # Walk towards the center!
+    print forward_vel, angle
+    MAX_ANGLE_VELOCITY = .3
+    turning_vel = max(-MAX_ANGLE_VELOCITY , min(MAX_ANGLE_VELOCITY, angle))
+    commands.setWalkVelocity(forward_vel, 0, turning_vel)
+
 class Set(LoopingStateMachine):
   def setup(self):
     # Movements
@@ -592,12 +696,6 @@ class Set(LoopingStateMachine):
 
 class Playing(LoopingStateMachine):
   """Forward Walking and Turn in Place"""
-
-  class Stand(Node):
-    def run(self):
-      commands.stand()
-      if self.getTime() > 3.0:
-        self.finish()
 
   def setup(self):
     memory.speech.say("Let's localize'!")
@@ -618,3 +716,9 @@ class Playing(LoopingStateMachine):
 
     # self.trans(stand, C, sl, C, sl)
     # self.trans(stand, C, turn, C, pursue_beacon, C, turn)
+
+    # spin = Spin()
+    # walk_to_center = WalkToCenter()
+
+    # self.trans(spin, C, walk_to_center)
+    # self.setFinish(None) # This ensures that the last node in trans is not the final node
