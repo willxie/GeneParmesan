@@ -484,187 +484,6 @@ class SpinToCenter(Node):
     if self.getTime() > 30.0:
       self.finish()
 
-
-
-
-
-
-
-
-
-
-
-
-
-##############################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################
-
-
-
-
-
-
-
-
-# Spin few times so that the robot get a good idea of where it is
-class SpinLocalize(Node):
-  def run(self):
-    if (not memory.body_model.feet_on_ground_):
-      memory.speech.say("Flying")
-      self.reset()
-    else:
-      memory.speech.say("Spining")
-
-
-
-
-    commands.setHeadPan(0, 1)
-
-    # nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
-    # t = nao.orientation
-    # x = nao.loc.x
-    # y = nao.loc.y
-    # print("Robot x: {}\t y:{}\t t: {}".format(x, y, t))
-    # origin = memory.world_objects.getObjPtr(core.WO_TEAM_COACH)
-    # print("bearing: {}".format(origin.orientation))
-
-    beacon_list = [ core.WO_BEACON_BLUE_YELLOW,
-                    core.WO_BEACON_YELLOW_BLUE,
-                    core.WO_BEACON_BLUE_PINK,
-                    core.WO_BEACON_PINK_BLUE,
-                    core.WO_BEACON_PINK_YELLOW,
-                    core.WO_BEACON_YELLOW_PINK]
-
-    commands.setHeadTilt(-18)   # Tilt head up so we can see goal (default = -22)
-    # commands.setWalkVelocity(0, 0, -0.15)
-
-    # if self.getTime() > 5.0:
-    #   any_beacon_seen = False
-    #   for key in beacon_list:
-    #     beacon = memory.world_objects.getObjPtr(key)
-    #     if beacon.seen:
-    #       any_beacon_seen = True
-
-    vel_x = 0
-    vel_y = 0
-    vel_turn = 0.35
-    commands.setWalkVelocity(vel_x, vel_y, vel_turn)
-
-    if self.getTime() > 10.0:
-      beacon_x_right_threshold = 360.0 / 2 + 40
-      beacon_x_left_threshold  = 360.0 / 2 - 40
-
-      any_beacon_aligned = False
-      for key in beacon_list:
-        beacon = memory.world_objects.getObjPtr(key)
-        if beacon.seen:
-          if (beacon.imageCenterX < beacon_x_right_threshold) and (beacon.imageCenterX > beacon_x_left_threshold):
-            any_beacon_aligned = True
-
-      if any_beacon_aligned:
-        self.finish()
-
-
-
-
-# 1 = left, -1 = right
-def toCenter(self, dir):
-    vel_x = 0.4
-    vel_y = 0
-    vel_turn = 0.05 # This is needed because forward odo is not reliable
-
-    turn_speed = 0.3
-
-    origin = memory.world_objects.getObjPtr(core.WO_TEAM_COACH)
-    bearing = origin.orientation
-    distance = origin.distance
-
-    # Calculate forward velocity
-    dist = distance / 1000.0
-    DIST_THRESHOLD = 1.5
-    dist = min(dist, DIST_THRESHOLD)
-    DIST_CONSTANT = 2/3.
-    vel_x = dist * DIST_CONSTANT
-    MAX_VEL_XOCITY = 0.50
-    vel_x *= MAX_VEL_XOCITY
-    MIN_VEL_XOCITY = 0.35
-    vel_x = max(MIN_VEL_XOCITY, vel_x)
-
-    # Walk towards the center!
-    MAX_BEARING_VELOCITY = 0.3
-    vel_turn = max(-MAX_BEARING_VELOCITY , min(MAX_BEARING_VELOCITY, bearing))
-
-    # if (bearing > 0):
-    #   vel_turn += turn_speed
-    # else:
-    #   vel_turn -= turn_speed
-
-    commands.setHeadTilt(-18)   # Tilt head up so we can see goal (default = -22)
-    commands.setWalkVelocity(vel_x, vel_y, vel_turn)
-    # commands.setHeadPan(dir * 1.5, 1)
-
-    print("distance: {}\t\t bearing: {}".format(distance, bearing))
-
-    # Kidnapped relocalize
-    if (not memory.body_model.feet_on_ground_):
-      ToCenterBoth.num_times_no_beacon = 0
-      self.postSignal("spin")
-      print("flying")
-
-    if (distance < 50):
-      ToCenterBoth.num_times_no_beacon = 0
-      self.postSignal("spin")
-
-class ToCenterBoth(Node):
-  num_times_no_beacon = 0
-  def run(self):
-    if any(tuple(visible_beacons())):
-      ToCenterBoth.num_times_no_beacon = 0
-    else:
-      ToCenterBoth.num_times_no_beacon += 1
-
-    if ToCenterBoth.num_times_no_beacon > 30 * 5:
-      self.postSignal("spin")
-
-    if (int(self.getTime()) % 4) >= 2:
-      memory.speech.say("right")
-      commands.setHeadPan(1.5, 1.5)
-    else:
-      memory.speech.say("left")
-      commands.setHeadPan(-1.5, 1.5)
-
-    toCenter(self, 0)
-
-# Dont use
-class ToCenterLeft(Node):
-  def run(self):
-    if self.getTime() < 2:
-      memory.speech.say("left")
-
-    toCenter(self, 1)
-
-# Dont use
-class ToCenterRight(Node):
-  def run(self):
-    if self.getTime() < 2:
-      memory.speech.say("right")
-
-    toCenter(self, -1)
-
-# Button behaviors
-class Ready(Task):
-  def run(self):
-    commands.standStraight()
-    if self.getTime() > 3.0:
-      memory.speech.say("I am ready")
-      self.finish()
-
-class Set(Task):
-  def run(self):
-    commands.stand()
-    if self.getTime() > 3.0:
-      memory.speech.say("I am set")
-      self.finish()
-
 class LeftPan(Task):
   def run(self):
     commands.setHeadPan(1, 1)
@@ -745,6 +564,206 @@ class WalkToCenter(Task):
     turning_vel = max(-MAX_ANGLE_VELOCITY , min(MAX_ANGLE_VELOCITY, angle))
     commands.setWalkVelocity(forward_vel, 0, turning_vel)
 
+
+
+
+
+
+
+
+
+
+
+
+
+##############################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################
+
+
+
+
+
+
+
+
+# Spin few times so that the robot get a good idea of where it is
+class SpinLocalize(Node):
+  def run(self):
+    if (not memory.body_model.feet_on_ground_):
+      memory.speech.say("Flying")
+      self.reset()
+    else:
+      memory.speech.say("Spining")
+
+    commands.setHeadPan(0, 1)
+
+    # nao = memory.world_objects.getObjPtr(memory.robot_state.WO_SELF)
+    # t = nao.orientation
+    # x = nao.loc.x
+    # y = nao.loc.y
+    # print("Robot x: {}\t y:{}\t t: {}".format(x, y, t))
+    # origin = memory.world_objects.getObjPtr(core.WO_TEAM_COACH)
+    # print("bearing: {}".format(origin.orientation))
+
+    beacon_list = [ core.WO_BEACON_BLUE_YELLOW,
+                    core.WO_BEACON_YELLOW_BLUE,
+                    core.WO_BEACON_BLUE_PINK,
+                    core.WO_BEACON_PINK_BLUE,
+                    core.WO_BEACON_PINK_YELLOW,
+                    core.WO_BEACON_YELLOW_PINK]
+
+    commands.setHeadTilt(-18)   # Tilt head up so we can see goal (default = -22)
+    # commands.setWalkVelocity(0, 0, -0.15)
+
+    # if self.getTime() > 5.0:
+    #   any_beacon_seen = False
+    #   for key in beacon_list:
+    #     beacon = memory.world_objects.getObjPtr(key)
+    #     if beacon.seen:
+    #       any_beacon_seen = True
+
+    vel_x = 0
+    vel_y = 0
+    vel_turn = 0.30
+    commands.setWalkVelocity(vel_x, vel_y, vel_turn)
+
+    if self.getTime() > 10.0:
+      beacon_x_right_threshold = 360.0 / 2 + 40
+      beacon_x_left_threshold  = 360.0 / 2 - 40
+
+      any_beacon_aligned = False
+      for key in beacon_list:
+        beacon = memory.world_objects.getObjPtr(key)
+        if beacon.seen:
+          if (beacon.imageCenterX < beacon_x_right_threshold) and (beacon.imageCenterX > beacon_x_left_threshold):
+            any_beacon_aligned = True
+
+      if any_beacon_aligned:
+        self.finish()
+
+
+
+
+# 1 = left, -1 = right
+def toCenter(self, dir):
+    vel_x = 0.4
+    vel_y = 0
+    vel_turn = 0.05 # This is needed because forward odo is not reliable
+
+    turn_speed = 0.3
+
+    origin = memory.world_objects.getObjPtr(core.WO_TEAM_COACH)
+    bearing = origin.orientation
+    distance = origin.distance
+
+    # Calculate forward velocity
+    dist = distance / 1000.0
+    DIST_THRESHOLD = 1.5
+    dist = min(dist, DIST_THRESHOLD)
+    DIST_CONSTANT = 2/3.
+    vel_x = dist * DIST_CONSTANT
+    MAX_VEL_XOCITY = 0.50
+    vel_x *= MAX_VEL_XOCITY
+    MIN_VEL_XOCITY = 0.30
+    vel_x = max(MIN_VEL_XOCITY, vel_x)
+
+    # Walk towards the center!
+    MAX_BEARING_VELOCITY = 0.3
+    vel_turn = max(-MAX_BEARING_VELOCITY , min(MAX_BEARING_VELOCITY, bearing))
+
+    # if (bearing > 0):
+    #   vel_turn += turn_speed
+    # else:
+    #   vel_turn -= turn_speed
+
+    commands.setHeadTilt(-18)   # Tilt head up so we can see goal (default = -22)
+    commands.setWalkVelocity(vel_x, vel_y, vel_turn)
+    # commands.setHeadPan(dir * 1.5, 1)
+
+    print("distance: {}\t\t bearing: {}".format(distance, bearing))
+
+    # Kidnapped relocalize
+    if (not memory.body_model.feet_on_ground_):
+      ToCenterBoth.num_times_no_beacon = 0
+      self.postSignal("spin")
+      print("flying")
+
+    # Closer
+    if (distance < 50):
+      ToCenterBoth.num_times_no_beacon = 0
+      self.postSignal("check")
+
+class ToCenterBoth(Node):
+  num_times_no_beacon = 0
+  def run(self):
+    if any(tuple(visible_beacons())):
+      ToCenterBoth.num_times_no_beacon = 0
+    else:
+      ToCenterBoth.num_times_no_beacon += 1
+
+    if ToCenterBoth.num_times_no_beacon > 30 * 5:
+      self.postSignal("spin")
+
+    if (int(self.getTime()) % 4) >= 2:
+      memory.speech.say("left")
+      commands.setHeadPan(1.5, 1.5)
+    else:
+      memory.speech.say("right")
+      commands.setHeadPan(-1.5, 1.5)
+
+    toCenter(self, 0)
+
+class StandLocalize(Node):
+  def run(self):
+    memory.walk_request.noWalk()
+    if self.getTime() < 1.0:
+      memory.speech.say("Checking")
+      commands.setHeadPan(0, 1)
+    elif self.getTime() > 1.0 and self.getTime() < 3.0:
+      commands.setHeadPan(-1.5, 1.0)
+    elif self.getTime() > 3.0 and self.getTime() < 5.0:
+      commands.setHeadPan(1.5, 1.5)
+    elif self.getTime() > 5.0 and self.getTime() < 7.0:
+      commands.setHeadPan(-1.5, 1.5)
+    elif self.getTime() > 7.0 and self.getTime() < 9.0:
+      commands.setHeadPan(1.5, 1.5)
+    else:
+      commands.setHeadPan(0, 1)
+
+    if self.getTime() > 10.0:
+      self.finish()
+
+
+# Dont use
+class ToCenterLeft(Node):
+  def run(self):
+    if self.getTime() < 2:
+      memory.speech.say("left")
+
+    toCenter(self, 1)
+
+# Dont use
+class ToCenterRight(Node):
+  def run(self):
+    if self.getTime() < 2:
+      memory.speech.say("right")
+
+    toCenter(self, -1)
+
+# Button behaviors
+class Ready(Task):
+  def run(self):
+    commands.standStraight()
+    if self.getTime() > 3.0:
+      memory.speech.say("I am ready")
+      self.finish()
+
+class Set(Task):
+  def run(self):
+    commands.stand()
+    if self.getTime() > 3.0:
+      memory.speech.say("I am set")
+      self.finish()
+
 class Set(LoopingStateMachine):
   def setup(self):
     # Movements
@@ -765,12 +784,17 @@ class Playing(LoopingStateMachine):
 
     # Movements
     stand = Stand()
-    sl = SpinLocalize()
+    spl = SpinLocalize()
+    stl = StandLocalize()
     both = ToCenterBoth()
 
-    # self.trans(stand, C, sl, C, left, C, right, C, left)
-    self.trans(stand, C, sl, C, both, C, sl)
-    self.trans(both, S("spin"), sl)
+    # test
+    # self.trans( spl, C, spl)
+
+    self.trans(stand, C, spl, C, both, C, spl)
+    self.trans(both, S("spin"), spl)
+    self.trans(both, S("check"), spl)
+
 
     # self.trans(stand, C, left, C, right, C, left)
 
