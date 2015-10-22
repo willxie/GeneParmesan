@@ -18,7 +18,7 @@ const int MAX_FIELD_X = 2500;
 const int MIN_FIELD_Y = -1250;
 const int MAX_FIELD_Y = 1250;
 
-const int NUM_CLUSTERS = 2;
+const int NUM_CLUSTERS = 1;
 
 class ParticleFilter {
   public:

@@ -252,7 +252,7 @@ const Pose2D& ParticleFilter::pose() const {
 //	centroid.y = 0;
 //	centroids.insert(centroid);
 
-	cout << "========> BEGIN K-MEANS <========" << endl;
+//	cout << "========> BEGIN K-MEANS <========" << endl;
 
 //	cout << "PARTICLES" << endl;
 //	for (auto p : particles())
@@ -268,6 +268,7 @@ const Pose2D& ParticleFilter::pose() const {
 	map<Centroid, set<Particle, particle_comp_>, centroid_comp_> closest_particles;
 	set<Point2D, centroid_comp_> new_centroids = centroids;
 	map<Centroid, int, centroid_comp_> cluster_size;
+	int i = 0;
 	do {
 //		cout << "PARTICLES" << endl;
 //		for (auto p : particles())
@@ -352,12 +353,13 @@ const Pose2D& ParticleFilter::pose() const {
 //			cout << centroid.x << " " << centroid.y << " (" << cluster_size[centroid] << ")" << endl;
 //		cout << endl << endl;
 
-	} while (centroids != new_centroids);
+		i++;
+	} while (i < 3);
 
-	cout << "Centroids" << endl;
-	for (auto centroid : centroids)
-		cout << centroid.x << " " << centroid.y << " (" << cluster_size[centroid] << ")" << endl;
-	cout << endl;
+//	cout << "Centroids" << endl;
+//	for (auto centroid : centroids)
+//		cout << centroid.x << " " << centroid.y << " (" << cluster_size[centroid] << ")" << endl;
+//	cout << endl;
 
 	Centroid best_cluster;
 	double max_particles = -1;
@@ -368,9 +370,9 @@ const Pose2D& ParticleFilter::pose() const {
 		}
 	}
 
-	cout << "Best cluster: " << best_cluster.x << " " << best_cluster.y << " (" << cluster_size[best_cluster] << ")" << endl;
-
-	cout << "========> END K-MEANS <========" << endl << endl;
+//	cout << "Best cluster: " << best_cluster.x << " " << best_cluster.y << " (" << cluster_size[best_cluster] << ")" << endl;
+//
+//	cout << "========> END K-MEANS <========" << endl << endl;
 
     // Compute the mean pose estimate
     mean_ = Pose2D();
