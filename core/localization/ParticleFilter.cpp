@@ -2,6 +2,8 @@
 #include <memory/FrameInfoBlock.h>
 #include <memory/OdometryBlock.h>
 #include <memory/WorldObjectBlock.h>
+#include <set>
+#include <map>
 
 ParticleFilter::ParticleFilter(MemoryCache& cache, TextLogger*& tlogger) 
   : cache_(cache), tlogger_(tlogger), dirty_(true) {
@@ -226,6 +228,150 @@ void ParticleFilter::processFrame() {
 // Pose is the average of all the particles
 const Pose2D& ParticleFilter::pose() const {
   if(dirty_) {
+
+	typedef Point2D Centroid;
+
+	// k means clustering
+	//
+	// Initialize random centroids
+	set<Centroid, centroid_comp_> centroids;
+	for (int i = 0; i < NUM_CLUSTERS; i++) {
+		Centroid centroid;
+	    centroid.x = (rand() % (2*2500)) - 2500;
+	    centroid.y = (rand() % (2*1250)) - 1250;
+
+	    centroids.insert(centroid);
+	}
+
+//	Centroid centroid;
+//	centroid.x = -1000;
+//	centroid.y = 0;
+//	centroids.insert(centroid);
+//
+//	centroid.x = 1000;
+//	centroid.y = 0;
+//	centroids.insert(centroid);
+
+	cout << "========> BEGIN K-MEANS <========" << endl;
+
+//	cout << "PARTICLES" << endl;
+//	for (auto p : particles())
+//		cout << p.x << " " << p.y << endl;
+//	cout << endl;
+////
+//	cout << "Random Centroids" << endl;
+//	for (auto centroid : centroids)
+//		cout << centroid.x << " " << centroid.y << endl;
+//	cout << endl;
+
+	// Iterate until convergence
+	map<Centroid, set<Particle, particle_comp_>, centroid_comp_> closest_particles;
+	set<Point2D, centroid_comp_> new_centroids = centroids;
+	map<Centroid, int, centroid_comp_> cluster_size;
+	do {
+//		cout << "PARTICLES" << endl;
+//		for (auto p : particles())
+//			cout << p.x << " " << p.y << endl;
+//		cout << endl;
+
+		centroids = new_centroids;
+		new_centroids.clear();
+		cluster_size.clear();
+		// Compute the closest centroid to each particle
+		double closest_centroid_distance = 50000;
+		Centroid closest_centroid = NULL;
+		for (Particle p : particles()) {
+			for (Centroid centroid : centroids) {
+//				cout << "Current closest distance: " << closest_centroid_distance << endl;
+				double distance = sqrt(pow(p.x-centroid.x, 2) + pow(p.y-centroid.y, 2));
+				// Record the closest centroid
+//				cout << "Particle " << p.x << " " << p.y << endl;
+//				cout << "Comparing centroid: " << centroid.x << " " << centroid.y << endl;
+//				cout << "Proposal Distance: " << distance << endl;
+				if (distance < closest_centroid_distance) {
+//					cout << "Proposed distance is closer!!!" << endl;
+					closest_centroid_distance = distance;
+					closest_centroid = centroid;
+				}
+			}
+
+//			cout << "C(" << closest_centroid.x << " " << closest_centroid.y << ") -> P(" << p.x << " " << p.y << ")" << endl;
+			closest_particles[closest_centroid].insert(p);
+
+			// Record the closest centroid
+//			cout << "Particle " << p.x << " " << p.y << endl;
+//			cout << "Closest centroid: " << closest_centroid.x << " " << closest_centroid.y << endl;
+//			cout << "Centroid distance: " << closest_centroid_distance << endl << endl;
+//			for (auto c : closest_particles) {
+//				cout << "CENTROID " << c.first.x << " " << c.first.y << " at this point..." << endl;
+//				for (auto pp : c.second) {
+//					cout << pp.x << " " << pp.y << endl;
+//				}
+//				cout << endl;
+//			}
+//			cout << endl;
+
+			closest_centroid = NULL;
+			closest_centroid_distance = 50000;
+		}
+
+//		// Print closest particles
+//		for (auto elem : closest_particles) {
+//			cout << "Centroid: " << elem.first.x << " " << elem.first.y << endl;
+//
+//			for (auto p : elem.second) {
+//				cout << "Particle: " << p.x << " " << p.y << endl;
+//			}
+//
+//			cout << endl;
+//		}
+
+		// Recompute the centroids based on the mean of all the closest particles
+		for (Centroid centroid : centroids) {
+			double sum_x = 0;
+			double sum_y = 0;
+			for (Particle p : closest_particles[centroid]) {
+				sum_x += p.x;
+				sum_y += p.y;
+			}
+
+			int num_particles = closest_particles[centroid].size();
+			if (num_particles > 0) {
+				new_centroids.insert(Centroid(sum_x/num_particles, sum_y/num_particles));
+				cluster_size[centroid] = num_particles;
+			}
+		}
+
+//		cout << "Centroids" << endl;
+//		for (auto centroid : centroids)
+//			cout << centroid.x << " " << centroid.y << " (" << cluster_size[centroid] << ")" << endl;
+//		cout << endl;
+//
+//		cout << "New Centroids" << endl;
+//		for (auto centroid : new_centroids)
+//			cout << centroid.x << " " << centroid.y << " (" << cluster_size[centroid] << ")" << endl;
+//		cout << endl << endl;
+
+	} while (centroids != new_centroids);
+
+	cout << "Centroids" << endl;
+	for (auto centroid : centroids)
+		cout << centroid.x << " " << centroid.y << " (" << cluster_size[centroid] << ")" << endl;
+	cout << endl;
+
+	Centroid best_cluster;
+	double max_particles = -1;
+	for (Centroid centroid : centroids) {
+		if (cluster_size[centroid] > max_particles) {
+			best_cluster = centroid;
+			max_particles = cluster_size[centroid];
+		}
+	}
+
+	cout << "Best cluster: " << best_cluster.x << " " << best_cluster.y << " (" << cluster_size[best_cluster] << ")" << endl;
+
+	cout << "========> END K-MEANS <========" << endl << endl;
+
     // Compute the mean pose estimate
     mean_ = Pose2D();
     using T = decltype(mean_.translation);
@@ -235,6 +381,10 @@ const Pose2D& ParticleFilter::pose() const {
     }
     if(particles().size() > 0)
       mean_ /= particles().size();
+
+    // k-means update
+    mean_.translation = best_cluster;
+
     dirty_ = false;
   }
   return mean_;

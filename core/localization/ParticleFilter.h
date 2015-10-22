@@ -18,6 +18,8 @@ const int MAX_FIELD_X = 2500;
 const int MIN_FIELD_Y = -1250;
 const int MAX_FIELD_Y = 1250;
 
+const int NUM_CLUSTERS = 2;
+
 class ParticleFilter {
   public:
     ParticleFilter(MemoryCache& cache, TextLogger*& tlogger);
@@ -43,4 +45,36 @@ class ParticleFilter {
 
     mutable Pose2D mean_;
     mutable bool dirty_;
+
+    struct centroid_comp_ {
+        bool operator() (const Point2D& a, const Point2D& b) const {
+            if (a.x < b.x) return true;
+            if (a.x > b.x) return false;
+
+            // Equal x values!
+
+            if (a.y < b.y) return true;
+            if (a.y > b.y) return false;
+
+            // Equal x and y values!
+
+            return false;
+        }
+    };
+
+    struct particle_comp_ {
+        bool operator() (const Particle& a, const Particle& b) const {
+            if (a.x < b.x) return true;
+            if (a.x > b.x) return false;
+
+            // Equal x values!
+
+            if (a.y < b.y) return true;
+            if (a.y > b.y) return false;
+
+            // Equal x and y values!
+
+            return false;
+        }
+    };
 };
