@@ -508,7 +508,14 @@ class SpinToCenter(Node):
 # Spin few times so that the robot get a good idea of where it is
 class SpinLocalize(Node):
   def run(self):
-    memory.speech.say("Spining")
+    if (not memory.body_model.feet_on_ground_):
+      memory.speech.say("Flying")
+      self.reset()
+    else:
+      memory.speech.say("Spining")
+
+
+
 
     commands.setHeadPan(0, 1)
 
@@ -539,10 +546,10 @@ class SpinLocalize(Node):
 
     vel_x = 0
     vel_y = 0
-    vel_turn = 0.30
+    vel_turn = 0.35
     commands.setWalkVelocity(vel_x, vel_y, vel_turn)
 
-    if self.getTime() > 20.0:
+    if self.getTime() > 10.0:
       beacon_x_right_threshold = 360.0 / 2 + 40
       beacon_x_left_threshold  = 360.0 / 2 - 40
 
@@ -603,9 +610,29 @@ def toCenter(self, dir):
       self.postSignal("spin")
       print("flying")
 
-    if (distance < 100):
+    if (distance < 50):
       ToCenterBoth.num_times_no_beacon = 0
       self.postSignal("spin")
+
+class ToCenterBoth(Node):
+  num_times_no_beacon = 0
+  def run(self):
+    if any(tuple(visible_beacons())):
+      ToCenterBoth.num_times_no_beacon = 0
+    else:
+      ToCenterBoth.num_times_no_beacon += 1
+
+    if ToCenterBoth.num_times_no_beacon > 30 * 5:
+      self.postSignal("spin")
+
+    if (int(self.getTime()) % 4) >= 2:
+      memory.speech.say("right")
+      commands.setHeadPan(1.5, 1.5)
+    else:
+      memory.speech.say("left")
+      commands.setHeadPan(-1.5, 1.5)
+
+    toCenter(self, 0)
 
 # Dont use
 class ToCenterLeft(Node):
@@ -622,27 +649,6 @@ class ToCenterRight(Node):
       memory.speech.say("right")
 
     toCenter(self, -1)
-
-class ToCenterBoth(Node):
-  num_times_no_beacon = 0
-  def run(self):
-    if any(tuple(visible_beacons())):
-      ToCenterBoth.num_times_no_beacon = 0
-    else:
-      ToCenterBoth.num_times_no_beacon += 1
-
-    if ToCenterBoth.num_times_no_beacon > 30 * 5:
-      self.postSignal("spin")
-
-    if (int(self.getTime()) % 4) >= 2:
-      memory.speech.say("left")
-      commands.setHeadPan(1.5, 1.5)
-    else:
-      memory.speech.say("right")
-      commands.setHeadPan(-1.5, 1.5)
-
-    toCenter(self, 0)
-
 
 # Button behaviors
 class Ready(Task):
@@ -765,8 +771,6 @@ class Playing(LoopingStateMachine):
     # self.trans(stand, C, sl, C, left, C, right, C, left)
     self.trans(stand, C, sl, C, both, C, sl)
     self.trans(both, S("spin"), sl)
-
-
 
     # self.trans(stand, C, left, C, right, C, left)
 
