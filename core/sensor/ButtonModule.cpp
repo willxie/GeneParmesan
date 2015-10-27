@@ -109,17 +109,22 @@ void ButtonModule::processCenterPresses() {
     }
   }
 #else
-  if ((center_.presses == 3) || (center_.presses == 4)) {
-    // always transition to finished
-    robot_state_->ignore_comms_ = !robot_state_->ignore_comms_;
-    if (robot_state_->ignore_comms_)
-      speech_->say("OFF");
-    else
-      speech_->say("ON");
-    //speech_->say("set");
-    //game_state_->setState(SET);
-  } else if (center_.presses == 5) {
-    game_state_->setState(FINISHED);
+  if (center_.presses == 1) {
+	  game_state_->setState(FINISHED);
+  } else if (center_.presses == 2) {
+	  game_state_->setState(PLAYING);
+  }  else if (center_.presses == 3) {
+	  game_state_->setState(SET);
+  } else if ((center_.presses == 4) || (center_.presses == 5)) {
+	  // always transition to finished
+	  robot_state_->ignore_comms_ = !robot_state_->ignore_comms_;
+	  if (robot_state_->ignore_comms_) {
+		  speech_->say("OFF");
+	  } else {
+		  speech_->say("ON");
+	  }
+	  //speech_->say("set");
+	  //game_state_->setState(SET);
   } else if (center_.presses == 6) {
     sayIP();
   } else {
