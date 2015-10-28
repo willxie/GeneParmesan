@@ -459,8 +459,8 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 			continue;
 		}
 
-		const int area_threshold = 40;
-//		printf("area = %d\n", blob.area);
+		const int area_threshold = 400;
+//		printf("goal area = %d\n", blob.area);
 		// Take out small blobs, the goal should be BIG relative to other blue things
 		if (blob.area < area_threshold) {
 			continue;
@@ -476,22 +476,23 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 		double density = std::abs(calculateDensity(blob) - density_ref);
 //		printf("delta density = %f\n", density);
 		// Density should be within +- 10% of ideal
-		if (!(density < density_tolerance)) {
-			continue;
-		}
+//		if (!(density < density_tolerance)) {
+//			continue;
+//		}
 
 		// Ratio is above a threshold
 		double ratio = std::abs(calculateAspectRatio(blob) - ratio_ref);
 //		printf("delta ratio = %f\n", ratio);
-		if (!(ratio < ratio_tolerance)) {
-			continue;
-		}
+//		if (!(ratio < ratio_tolerance)) {
+//			continue;
+//		}
 
 		BallCandidate candidate;
 		candidate.centerX = ((blob.left * 4) + (blob.right * 4)) / 2;
 		candidate.centerY = ((blob.top * 2) + (blob.bottom * 2)) / 2;
 		candidate.radius  = ((blob.right - blob.left + 1) * 4); // Width
-		candidate.confidence = (ratio * 1.0)+ (density * 1.0);  // The lower the better
+//		candidate.confidence = (ratio * 1.0)+ (density * 1.0);  // The lower the better
+		candidate.confidence = 1.0 / blob.area;
 		candidate_list.push_back(candidate);
 	}
 	
@@ -499,7 +500,7 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 		return false;
 	}
 
-	// Find best ball, lowest confidence
+	// Find best goal, lowest confidence
 	std::sort(candidate_list.begin(), candidate_list.end(), [] (const BallCandidate& bc1, const BallCandidate& bc2) {
 		// Bounding box area (not pixel area)
 		return bc1.confidence < bc2.confidence;
@@ -521,7 +522,7 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 	goal->seen = true;
 	goal->fromTopCamera = camera_ == Camera::TOP;
 
-//	printf("GOAL!\n");
+//	printf("Found goal!\n");
 
 	return true;
 }

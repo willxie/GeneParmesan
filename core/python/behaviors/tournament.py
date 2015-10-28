@@ -2,6 +2,53 @@ import memory, pose, commands, cfgstiff, core
 from task import Task
 from state_machine import *
 
+beacon_list = [ core.WO_BEACON_BLUE_YELLOW,
+                core.WO_BEACON_YELLOW_BLUE,
+                core.WO_BEACON_BLUE_PINK,
+                core.WO_BEACON_PINK_BLUE,
+                core.WO_BEACON_PINK_YELLOW,
+                core.WO_BEACON_YELLOW_PINK]
+# Default to right = 0 (left = 1)
+turn_dir = 0
+
+# Use the beacons to set the next turn direction
+def set_turn_direction(beacon):
+  global turn_dir
+  # print("Beacon: {}".format(beacon))
+  # print("BP: {}".format(core.WO_BEACON_BLUE_PINK))
+  # print("PB: {}".format(core.WO_BEACON_PINK_BLUE))
+  if beacon == core.WO_BEACON_BLUE_PINK or beacon == core.WO_BEACON_PINK_BLUE:
+    turn_dir = 1
+  else:
+    turn_dir = 0
+
+
+
+class Scan(Node):
+  def run(self):
+    memory.walk_request.noWalk()
+
+    # Loop for beacon
+    global beacon_list
+    for key in beacon_list:
+      beacon = memory.world_objects.getObjPtr(key)
+      if beacon.seen:
+        set_turn_direction(key)
+        print("Changing robot direction to: {}".format(turn_dir))
+
+    # Turn head
+    if self.getTime() < 1.0:
+      memory.speech.say("Scanning")
+    elif self.getTime() > 0.0 and self.getTime() < 2.0:
+      commands.setHeadPan(-1.0, 0.5)
+    elif self.getTime() > 2.0 and self.getTime() < 3.5:
+      commands.setHeadPan(1.0, 1.0)
+    else:
+      commands.setHeadPan(0, 0.4)
+
+    if self.getTime() > 4.0:
+      self.finish()
+
 
 # Sub tasks
 class Stand(Node):
@@ -17,7 +64,7 @@ class Sit(Node):
     if self.getTime() > 3.0:
       memory.speech.say("Sitting complete")
       self.finish()
-      
+
 class Spin(Node):
   def run(self):
     """Keep spinning until you see the ball in either camera"""
@@ -25,7 +72,7 @@ class Spin(Node):
     ball = memory.world_objects.getObjPtr(core.WO_BALL)
     if ball.seen:
       self.finish()
-      
+
     commands.setWalkVelocity(0, 0, -0.25)
 
 class ScanLeft(Node):
@@ -51,50 +98,50 @@ class ScanRight(Node):
     if self.getTime() > 3.0:
       self.resetTime()
       self.finish()
-      
+
 class PursueBall(Node):
     ball_distances = []
     def run(self):
         """Approach the ball enough to get it into the bottom camera
-        
+
         The error term we're using is the distance to the ball
-        
+
         """
         MAX_ANGULAR_VELOCITY = 3.14/2 * 0.5
 
         # After 1.5 meters, we don't care about how far the ball is. It doesn't make us
         # approach it any faster.
         DISTANCE_THRESHOLD = 1.5
-        
+
         # Factor to multiply thresholded distance by to get a maximum value equal to one
         DISTANCE_CONSTANT = 2/3.
-        
+
         # Ball pursing thresholds
         MAX_FORWARD_VELOCITY = .75
         MIN_FORWARD_VELOCITY = 0.50
-        
+
         if self.getTime() > 2.0:
           self.postSignal("restart")
-        
+
         ball = memory.world_objects.getObjPtr(core.WO_BALL)
         if not ball.seen:
           return
-      
+
         # Reset the timer to act as a failsafe against losing the ball
         self.reset()
-      
+
         # Ball in the bottom frame?
         if not ball.fromTopCamera:
           self.finish()
-        
+
         # Ball coordinates
         ball_x, ball_y = ball.imageCenterX, ball.imageCenterY
-        
+
         # Calculate forward velocity
         ball_distance = ball.visionDistance / 1000
 #         print('Ball distance: {}'.format(ball_distance))
         ball_distance = min(ball_distance, DISTANCE_THRESHOLD)
-        
+
         # Cache the ball distances
         PursueBall.ball_distances = (PursueBall.ball_distances + [ball_distance])[-30:]
 #         print('Ball distances: {}'.format(PursueBall.ball_distances))
@@ -103,18 +150,18 @@ class PursueBall(Node):
 #                                            sum(PursueBall.ball_distances[:10]) / 10,
 #                                            slope))
 #         print('Input: {}'.format(1 / slope if slope else 1))
-        
-        
+
+
         # Get the maximum velocity to be 1
         forward_vel = ball_distance * DISTANCE_CONSTANT
         forward_vel *= MAX_FORWARD_VELOCITY
         forward_vel = max(MIN_FORWARD_VELOCITY, forward_vel)
 #         print('forward velocity: {}'.format(forward_vel))
-        
+
         # Calculate sideways velocity
         angular_vel = -(ball_x-160.0) / 160.0 * MAX_ANGULAR_VELOCITY
 #         print('Sideways Amount: {}'.format(angular_vel))
-        
+
         commands.setWalkVelocity(forward_vel, 0, angular_vel)
 
 # This is assuming that we can see the ball with bottom camera
@@ -125,9 +172,16 @@ class AlignGoal(Node):
     vel_x_gain = 0.50
     vel_turn_gain = 1.00
 
-    vel_y =  -0.50 # This is the tangential velocity, fix it (try -0.50)
+
+    vel_y = -0.50 # This is the tangential velocity, fix it (try -0.50 cw or left)
     vel_x = 0
     vel_turn = 0.30
+
+    # Change turn direction based on the last seen beacon (ccw or right)
+    global turn_dir
+    if turn_dir:
+      print("Changing robot direction to: {}".format(turn_dir))
+      vel_y = 0.50
 
     goal_aligned = False
 
@@ -168,8 +222,15 @@ class AlignGoal(Node):
       else:
         # Align goal toward center of the frame
         memory.speech.say("I see goal")
+
+        # Select turn directin based on where the goal is
+        if (goal.imageCenterX > (360.0 / 2)):
+          vel_y = abs(vel_y)
+        else:
+          vel_y = -abs(vel_y)
+
         # Slow down when the goal is closer to alignment (center of top frame)
-        vel_y = vel_y / 2
+        vel_y = vel_y * (3.0/5.0)
         if (goal.imageCenterX < goal_x_right_threshold) and (goal.imageCenterX > goal_x_left_threshold):
           goal_aligned = True
 
@@ -185,7 +246,7 @@ class AlignGoal(Node):
 # This is assuming that we can see the ball with bottom camera
 # Align ball to left foot and prepare to kick
 class PreKick(Node):
-  x_errs = [] 
+  x_errs = []
   def run(self):
     if self.getTime() > 2.0:
         self.postSignal('restart')
@@ -195,7 +256,7 @@ class PreKick(Node):
     vel_x_gain = 0.5
     vel_turn_gain = 1.00
 
-    vel_y =  0
+    vel_y =  0.15
     vel_x = 0
     vel_turn = 0
 
@@ -217,11 +278,12 @@ class PreKick(Node):
     ball_y_bottom_threshold  = y_desired + ball_tolerance
 
     ball = memory.world_objects.getObjPtr(core.WO_BALL)
+    goal = memory.world_objects.getObjPtr(core.WO_OPP_GOAL)
 
     # Make sure that the ball is always at the same position relative to Gene
     if ball.seen:
       self.reset()
-        
+
       if ball.fromTopCamera:
         # TODO maybe walk foward?
         memory.speech.say("Pre kick The ball is in top frame")
@@ -242,25 +304,43 @@ class PreKick(Node):
           if vel_turn  > 0:
             vel_turn  = global_offset
           if vel_turn  < 0:
-            vel_turn  = -global_offset	
+            vel_turn  = -global_offset
 
         # Cache the current x velocity for ID control
         PreKick.x_errs = (PreKick.x_errs + [vel_x])[-30:]
-        
+
         # Integral Control
         INTEGRAL_CONSTANT = 1 / 75.
         integral = sum(PreKick.x_errs) * INTEGRAL_CONSTANT
-        print(PreKick.x_errs)
-        print('Integral: {}'.format(integral))
-        print('(x,y) = ({},{})'.format(ball.imageCenterX, ball.imageCenterY))
+        # print(PreKick.x_errs)
+        # print('Integral: {}'.format(integral))
+        # print('(x,y) = ({},{})'.format(ball.imageCenterX, ball.imageCenterY))
         vel_x += integral
-        
+
 #         print('vel_x = {}'.format(vel_x))
 
         if ((ball.imageCenterY > ball_y_top_threshold) and (ball.imageCenterY < ball_y_bottom_threshold) and
             (ball.imageCenterX < ball_x_right_threshold) and (ball.imageCenterX > ball_x_left_threshold)):
-          print ball.imageCenterX, ball.imageCenterY
+          # print ball.imageCenterX, ball.imageCenterY
           ball_aligned = True
+
+    if goal.seen:
+      if not goal.fromTopCamera:
+        memory.speech.say("Why is the goal in bottom frame?")
+      else:
+        # Align goal toward center of the frame
+        memory.speech.say("I see goal")
+
+        # Select turn directin based on where the goal is
+        if (goal.imageCenterX > (360.0 / 2)):
+          vel_y = abs(vel_y)
+        else:
+          vel_y = -abs(vel_y)
+
+        # Slow down when the goal is closer to alignment (center of top frame)
+        # vel_y = vel_y * (3.0/5.0)
+        if (goal.imageCenterX < goal_x_right_threshold) and (goal.imageCenterX > goal_x_left_threshold):
+          goal_aligned = True
 
     # Exit condition
     if ball_aligned:
@@ -268,6 +348,7 @@ class PreKick(Node):
       self.finish()
 
     commands.setWalkVelocity(vel_x, vel_y, vel_turn)
+    commands.setHeadTilt(-18)   # Tilt head up so we can see goal (default = -22)
 
 class Kick(Node):
   def run(self):
@@ -310,10 +391,21 @@ class TrackBall(Node):
 # Button behaviors
 class Ready(Task):
   def run(self):
-    commands.standStraight()
-    if self.getTime() > 3.0:
+    if self.getTime() < 1.0:
       memory.speech.say("I am ready")
-      self.finish()
+
+    commands.standStraight()
+    commands.setHeadTilt(-18)   # Tilt head up so we can see goal (default = -22)
+
+    if self.getTime() > 3.0:
+      commands.stand()
+      goal = memory.world_objects.getObjPtr(core.WO_OPP_GOAL)
+      if goal.seen:
+        print("Goal distance: {}".format(goal.visionDistance))
+        # commands.setWalkVelocity(0, 0, -0.5)
+
+    # if self.getTime() > 3.0:
+      # self.finish()
 
 class Set(Task):
   def run(self):
@@ -334,22 +426,18 @@ class Set(Task):
     else:
       print 'NOOOOOWHERE'
       commands.setWalkVelocity(0, 0, 0)
-      
 
-class Playing(StateMachine):
-  """Forward Walking and Turn in Place"""
-  
-  class Stand(Node):
-    def run(self):
-      commands.stand()
-      if self.getTime() > 3.0:
-        self.finish()
-        
+
+class Playing(LoopingStateMachine):
+  """Attacking behavior, try to score"""
   def setup(self):
-    memory.speech.say("Attacking")
+    memory.speech.say("Charge")
 
+    global global_dict
     # Movements
     stand = Stand()
+    stand_2 = Stand()
+    scan = Scan()
     spin = Spin()
     sit = Sit()
     off = Off()
@@ -357,12 +445,14 @@ class Playing(StateMachine):
     align = AlignGoal()
     pre_kick = PreKick()
     kick = Kick()
-    
-    self.trans(stand, C, spin, C, pursue_ball, C, align, C, pre_kick, C, kick, C, spin)
-    
+
+    self.trans(stand, C, scan, C, pursue_ball, C,  align, C, pre_kick, C, kick, C, spin)
+
+    # Recovery behaviors
+    self.trans(spin, C, pursue_ball)
     # Lose the ball then go back to spinning
     self.trans(pursue_ball, S("restart"), spin)
     self.trans(align, S("restart"), spin)
     self.trans(pre_kick, S("restart"), spin)
 
-    self.setFinish(None) # This ensures that the last node in trans is not the final node
+    # self.setFinish(None) # This ensures that the last node in trans is not the final node
