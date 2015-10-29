@@ -124,11 +124,13 @@ class Dribble(Node):
     else:
       vel_x = -0.4
 
+    # TODO what if the goal is not seen???
     if goal.seen:
       vel_turn += vel_turn_gain * (x_desired - goal.imageCenterX) / (x_desired)
+      if goal.visionDistance < 2000:
+        self.finish()
 
     commands.setWalkVelocity(vel_x, vel_y, vel_turn)
-
 
 
 # This is assuming that we can see the ball with bottom camera
@@ -213,11 +215,11 @@ class PreKick(Node):
     ball_aligned = False
 
     # Target position of the ball in bottom camera
-    x_desired = 150.0
-    y_desired = 210.0
+    x_desired = 110.0
+    y_desired = 225.0
 
     # Ball centered threshold
-    ball_tolerance = 15
+    ball_tolerance = 7
     ball_x_left_threshold    = x_desired - ball_tolerance
     ball_x_right_threshold   = x_desired + ball_tolerance
     ball_y_top_threshold     = y_desired - ball_tolerance
@@ -394,8 +396,8 @@ class Ready(Task):
     commands.standStraight()
     commands.setHeadTilt(-18)   # Tilt head up so we can see goal (default = -22)
 
-    # if self.getTime() > 3.0:
-    #   # commands.stand()
+    if self.getTime() > 2.0:
+      commands.stand()
     #   # goal = memory.world_objects.getObjPtr(core.WO_OPP_GOAL)
     #   # if goal.seen:
     #   #   print("Goal distance: {}".format(goal.visionDistance))
@@ -446,8 +448,7 @@ class Playing(LoopingStateMachine):
     kick = Kick()
 
     # self.trans(stand, C, scan, C, pursue_ball, C,  align, C, pre_kick, C, kick, C, spin)
-    self.trans(stand, C, scan, C, pursue_ball, C,  align, C, dribble)
-
+    self.trans(stand, C, scan, C, pursue_ball, C, align, C, dribble, C, pre_kick, C, kick, C, spin)
 
     # Recovery behaviors
     self.trans(spin, C, pursue_ball)
