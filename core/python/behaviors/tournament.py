@@ -23,8 +23,6 @@ def set_turn_direction(beacon):
   else:
     turn_dir = 0
 
-
-
 class Scan(Node):
   def run(self):
     memory.walk_request.noWalk()
@@ -97,7 +95,7 @@ def align_goal(vel_y):
       vel_y = -abs(vel_y)
 
       # Slow down when the goal is closer to alignment (center of top frame)
-      vel_y = vel_y * (3.0/5.0)
+      vel_y = vel_y * (2.0/5.0)
     if (goal.imageCenterX < goal_x_right_threshold) and (goal.imageCenterX > goal_x_left_threshold):
       goal_aligned = True
 
@@ -216,7 +214,7 @@ class PreKick(Node):
     ball_aligned = False
 
     # Target position of the ball in bottom camera
-    x_desired = 130.0
+    x_desired = 140.0
     y_desired = 225.0
 
     # Ball centered threshold
@@ -455,17 +453,25 @@ class Shuffle(Node):
 
 class BlockLeft(Node):
   def run(self):
-
+    self.setSubtask(pose.PoseSequence(
+      cfgpose.blockleft, 0.5,
+      cfgpose.blockleft, 1.0,
+      cfgpose.sittingPoseNoArms, 2.0,
+      cfgpose.standingPose, 2.0))
 
     UTdebug.log(15, "Blocking left")
-    if self.getTime() < 1.0:
-      memory.speech.say("Blocking left")
+    memory.speech.say("Blocking left")
 
 class BlockRight(Node):
   def run(self):
+    self.setSubtask(pose.PoseSequence(
+      cfgpose.blockright, 0.5,
+      cfgpose.blockright, 1.0,
+      cfgpose.sittingPoseNoArms, 2.0,
+      cfgpose.standingPose, 2.0))
+
     UTdebug.log(15, "Blocking right")
-    if self.getTime() < 1.0:
-      memory.speech.say("Blocking right")
+    memory.speech.say("Blocking right")
 
 class BlockCenter(Node):
   def run(self):
@@ -490,7 +496,7 @@ class Blocker(Node):
     if self.getTime() < 1.0:
       memory.speech.say("Come at me Jake!")
 
-    commands.standStraight()
+    commands.stand()
 
     ball = mem_objects.world_objects[core.WO_BALL]
 
@@ -546,7 +552,7 @@ class Blocker(Node):
           elif -750 < y_intersect < -140:
             choice = "right"
           else:
-            choice = "no_block"
+            choice = "center"
           self.vel_list = []
           self.postSignal(choice)
         else:
@@ -595,10 +601,10 @@ class Set(LoopingStateMachine):
       # "right": BlockRight(),
       # "center": BlockCenter(),
       # "no_block": NoBlock()
-      "left": StepBlock(),
-      "right": StepBlock(),
-      "center": StepBlock(),
-      "no_block": NoBlock()
+      "left": BlockLeft(),
+      "right": BlockRight(),
+      "center": blocker,
+      "no_block": blocker
     }
 
     spread_block = pose.ToPose({
@@ -704,20 +710,21 @@ class Set(LoopingStateMachine):
     }
 
     forward = Forward()
-    stand = StandStraight()
-    stand_2 = StandStraight()
+    stand = Stand()
+    stand_2 = Stand()
     shuffle = Shuffle()
     sit = Sit()
 
     # self.trans(stand, C, pose.ToPose(cfgpose.standingPose), C, blocker)
-    # self.trans(forward, C, stand_2, C, super_spread_2, T(3), stand, C,  blocker)
-    self.trans(forward, C, stand_2, C, blocker)
+    self.trans(forward, C, stand_2, C, super_spread_2, T(3), stand, C, blocker)
+    # self.trans(forward, C, stand_2, C, blocker)
 
-    # for name in blocks:
-    #   b = blocks[name]
-    #   p = poses[name]
-    #   # self.trans(blocker, S(name), p, C, b, T(3), pose.ToPose(cfgpose.standingPose, toPoseTime), C, blocker)
-    #   self.trans(blocker, S(name), sit, T(0.5), super_spread, T(3), stand, C, shuffle, C,  blocker)
+    for name in blocks:
+      b = blocks[name]
+      p = poses[name]
+      # self.trans(blocker, S(name), p, C, b, T(3), pose.ToPose(cfgpose.standingPose, toPoseTime), C, blocker)
+      # self.trans(blocker, S(name), sit, t(0.5), super_spread, t(3), stand, c, shuffle, c,  blocker)
+      self.trans(blocker, S(name), b, T(5.0), blocker)
 
       # pose.PoseSequence(cfgpose.sittingPoseV3, 1), T(2)
     self.setFinish(None) # This ensures that the last node in trans is not the final node
