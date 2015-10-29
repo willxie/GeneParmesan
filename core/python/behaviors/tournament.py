@@ -107,7 +107,7 @@ def align_goal(vel_y):
 class Dribble(Node):
   def run(self):
     vel_turn_gain = 1.00
-    vel_y_gain = 0.70
+    vel_y_gain = 1.00
 
     vel_y = 0.0
     vel_x = 0.30
@@ -127,7 +127,7 @@ class Dribble(Node):
     # TODO what if the goal is not seen???
     if goal.seen:
       vel_turn += vel_turn_gain * (x_desired - goal.imageCenterX) / (x_desired)
-      if goal.visionDistance < 2000:
+      if goal.visionDistance < 2300:
         self.finish()
 
     commands.setWalkVelocity(vel_x, vel_y, vel_turn)
@@ -194,8 +194,10 @@ class AlignGoal(Node):
 class PreKick(Node):
   x_errs = []
   def run(self):
+    if self.getTime() < 1.0:
+        memory.speech.say("Pre-kick")
     if self.getTime() > 2.0:
-        self.postSignal('restart')
+      self.postSignal('restart')
 
     # These are max values for Gene to adjust itself
     vel_y_gain = 0.5
@@ -214,7 +216,7 @@ class PreKick(Node):
     ball_aligned = False
 
     # Target position of the ball in bottom camera
-    x_desired = 110.0
+    x_desired = 130.0
     y_desired = 225.0
 
     # Ball centered threshold
