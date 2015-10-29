@@ -1,4 +1,5 @@
-import memory, pose, commands, cfgstiff, core
+import memory, pose, commands, cfgstiff, cfgpose, core
+import mem_objects
 from task import Task
 from state_machine import *
 
@@ -386,6 +387,183 @@ class TrackBall(Node):
 
     if self.getTime() > 3.0:
       self.postSignal(self.inSignal())
+####################################################################################
+
+class ChangeStiff(Node):
+  OneLegSoft = [0] * core.NUM_JOINTS
+  OneLegSoft[core.HeadYaw] = 0.0
+  OneLegSoft[core.HeadPitch] = 0.0
+  OneLegSoft[core.LShoulderPitch] = 1.0
+  OneLegSoft[core.LShoulderRoll] = 1.0
+  OneLegSoft[core.LElbowYaw] = 1.0
+  OneLegSoft[core.LElbowRoll] = 1.0
+  OneLegSoft[core.LHipYawPitch] = 1.0
+  OneLegSoft[core.LHipPitch] = 1.0
+  OneLegSoft[core.LHipRoll] = 1.0
+  OneLegSoft[core.LKneePitch] = 1.0
+  OneLegSoft[core.LAnklePitch] = 1.0
+  OneLegSoft[core.LAnkleRoll] = 1.0
+  OneLegSoft[core.RHipYawPitch] = 1.0
+  OneLegSoft[core.RHipPitch] = 1.0
+  OneLegSoft[core.RHipRoll] = 1.0
+  OneLegSoft[core.RKneePitch] = 1.0
+  OneLegSoft[core.RAnklePitch] = 1.0
+  OneLegSoft[core.RAnkleRoll] = 1.0
+  OneLegSoft[core.RShoulderPitch] = 1.0
+  OneLegSoft[core.RShoulderRoll] = 1.0
+  OneLegSoft[core.RElbowYaw] = 1.0
+  OneLegSoft[core.RElbowRoll] = 1.0
+
+  def run(self):
+    commands.setStiffness(ChangeStiff.OneLegSoft)
+    if self.getTime() > 20.0:
+      self.finish()
+
+
+class FakeSit(Node):
+  def run(self):
+    pose.Sit()
+    if self.getTime() > 0.1:
+      self.finish()
+
+class StandStraight(Node):
+  def run(self):
+    commands.standStraight()
+    if self.getTime() > 3.0:
+      self.finish()
+
+class Sit(Node):
+  def run(self):
+    pose.Sit()
+    if self.getTime() > 1.0:
+      self.finish()
+
+class Forward(Node):
+  def run(self):
+    commands.setWalkVelocity(0.4, 0, 0.05)
+    if self.getTime() > 5.0:
+      self.finish()
+
+class Shuffle(Node):
+  def run(self):
+    commands.setWalkVelocity(0.1, 0, 0.05)
+    if self.getTime() > 3.0:
+      self.finish()
+
+
+class BlockLeft(Node):
+  def run(self):
+
+
+    UTdebug.log(15, "Blocking left")
+    if self.getTime() < 1.0:
+      memory.speech.say("Blocking left")
+
+class BlockRight(Node):
+  def run(self):
+    UTdebug.log(15, "Blocking right")
+    if self.getTime() < 1.0:
+      memory.speech.say("Blocking right")
+
+class BlockCenter(Node):
+  def run(self):
+    UTdebug.log(15, "Blocking center")
+    if self.getTime() < 1.0:
+      memory.speech.say("Blocking center")
+
+class NoBlock(Node):
+  def run(self):
+    UTdebug.log(15, "You missed the goal")
+
+    if self.getTime() < 0.5:
+      self.finish()
+      memory.speech.say("Haha")
+
+class Blocker(Node):
+  def __init__(self):
+    super(Blocker, self).__init__()
+    self.vel_list = [ float(0) ]
+
+  def run(self):
+    if self.getTime() < 1.0:
+      memory.speech.say("Come at me Jake!")
+
+    commands.standStraight()
+
+    ball = mem_objects.world_objects[core.WO_BALL]
+
+    commands.setHeadPan(ball.bearing, 1.0)
+    UTdebug.log(15, ".")
+    # Store a list of previous velocities
+    if ball.seen:
+      UTdebug.log(15, "seen")
+      # print("Ball distance: {}".format(ball.distance))
+      ball_x, ball_y = ball.imageCenterX, ball.imageCenterY
+      x_head_turn = -(ball_x-(320.0 / 2.0)) / 160.0
+      commands.setHeadPan(x_head_turn, .5)
+
+      # Max size is 6
+      if len(self.vel_list) > 3:
+        self.vel_list = self.vel_list[:-1]
+      temp_list = [ ball.absVel.x ]
+      self.vel_list = temp_list + self.vel_list
+
+      y_intersect = (ball.absVel.y / ball.absVel.x) * (-600 - ball.loc.x) + ball.loc.y
+      UTdebug.log(15, "y_intersect: {}".format(y_intersect))
+
+
+    if ball.distance < 1500:
+      # TODO
+      accel = (self.vel_list[-1] - self.vel_list[0]) / float(len(self.vel_list))
+      # ball_loc_pred = abs(ball.absVel.x * 3)
+      t = 3
+      ball_loc_pred = (ball.absVel.x * t) + ((t * t) / 2 * accel)
+      # if abs(ball.absVel.x * 3) > ball.distance:
+      if True:
+        # Find left or right or center block
+        y_intersect = (ball.absVel.y / ball.absVel.x) * (-750 - ball.loc.x) + ball.loc.y
+
+        UTdebug.log(15, "distance: {}\t ball_loc_pred: {}\t ball.absVel.x: {}".format(ball.distance, ball_loc_pred, ball.absVel.x))
+        UTdebug.log(15, "accel: {}".format(accel))
+        UTdebug.log(15, "Ball is close, blocking!")
+        # print("y_intersect: {}".format(y_intersect))
+
+        xvel_avg = sum(self.vel_list) / len(self.vel_list)
+        # print('XVEL_LENGTH = {}'.format(len(self.vel_list)))
+        # print('XVEL_AVG = {}'.format(xvel_avg))
+
+        min_xvel_avg = -400
+
+        # if ball.bearing > 30 * core.DEG_T_RAD:
+        if xvel_avg < min_xvel_avg:
+          if 130 < y_intersect < 750:
+            choice = "left"
+            # elif ball.bearing < -30 * core.DEG_T_RAD:
+          elif -140 < y_intersect < 130:
+            choice = "center"
+          elif -750 < y_intersect < -140:
+            choice = "right"
+          else:
+            choice = "no_block"
+          self.vel_list = []
+          self.postSignal(choice)
+        else:
+          self.vel_list = []
+
+class StepBlock(Node):
+  def run(self):
+    ball = memory.world_objects.getObjPtr(core.WO_BALL)
+    if ball.seen:
+      if ball.bearing > 0:
+        commands.setWalkVelocity(0, 0.5, 0)
+      else:
+        commands.setWalkVelocity(0, -0.5, 0)
+    else:
+      commands.setWalkVelocity(0, 0.1, 0)
+    if self.getTime() > 2.0:
+      self.finish()
+
+####################################################################################
 
 # Button behaviors
 class Ready(Task):
@@ -406,26 +584,141 @@ class Ready(Task):
     # if self.getTime() > 3.0:
       # self.finish()
 
-class Set(Task):
-  def run(self):
-    if self.getTime() < 1.0:
-      memory.speech.say("Goalie")
+class Set(LoopingStateMachine):
+  def setup(self):
+    # commands.stand()
+    blocker = Blocker()
+    blocks = {
+      # "left": BlockLeft(),
+      # "right": BlockRight(),
+      # "center": BlockCenter(),
+      # "no_block": NoBlock()
+      "left": StepBlock(),
+      "right": StepBlock(),
+      "center": StepBlock(),
+      "no_block": NoBlock()
+    }
 
-    ball = memory.world_objects.getObjPtr(core.WO_BALL)
-    if ball.seen:
-      BEARING_THRESHOLD = .2
-      LATERAL_VELOCITY = .2
-      TURNING_OFFSET = .05
-      if abs(ball.bearing) < BEARING_THRESHOLD:
-        print 'LESSSS', ball.bearing
-        commands.setWalkVelocity(0, 0, 0)
-      else:
-        print 'MOOOOAR', ball.bearing
-        commands.setWalkVelocity(0, ball.bearing, TURNING_OFFSET)
-    else:
-      print 'NOOOOOWHERE'
-      commands.setWalkVelocity(0, 0, 0)
+    spread_block = pose.ToPose({
+      core.LHipYawPitch: -46.1407555417525,
+      core.LHipRoll: -14.5924259541654,
+      core.LHipPitch: -4.831634837732,
+      core.LKneePitch: 63.8948760627169,
+      core.LAnklePitch: -28.4793206878252,
+      core.LAnkleRoll: 4.74374396349228,
+      core.RHipYawPitch: -46.1407555417525,
+      core.RHipRoll: -12.6540046073375,
+      core.RHipPitch: -10.6373092926212,
+      core.RKneePitch: 63.1086529873567,
+      core.RAnklePitch: -21.7068466162991,
+      core.RAnkleRoll: 0.881326629363425,
+      core.LShoulderPitch: -91.4049929073173,
+      core.LShoulderRoll: 8.34731078845598,
+      core.LElbowYaw: -0.0902951008275686,
+      core.LElbowRoll: -1.57964517010553,
+      core.RShoulderPitch: -91.7613785178302,
+      core.RShoulderRoll: 8.70368273859057,
+      core.RElbowYaw: -0.349159270371052,
+      core.RElbowRoll: -0.881326629363425}, 1)
 
+    super_spread = pose.ToPose({
+      core.LHipYawPitch: -53.7092735014381,
+      core.LHipRoll: -2.8149395230157,
+      core.LHipPitch: -50.1837767379148,
+      core.LKneePitch: 109.071229384231,
+      core.LAnklePitch: -31.1160742357736,
+      core.LAnkleRoll: 3.07380369255918,
+      core.RHipYawPitch: -53.7092735014381,
+      core.RHipRoll: -17.2243710489382,
+      core.RHipPitch: -59.3293180742919,
+      core.RKneePitch: 112.328034335222,
+      core.RAnklePitch: -29.9686707571032,
+      core.RAnkleRoll: 12.395140437794,
+      core.LShoulderPitch: -92.4596970585723,
+      core.LShoulderRoll: 8.43520166269571,
+      core.LElbowYaw: -1.1449992520826,
+      core.LElbowRoll: -1.8433177928247,
+      core.RShoulderPitch: -96.1559495505731,
+      core.RShoulderRoll: 7.20952421613692,
+      core.RElbowYaw: -1.22808167314663,
+      core.RElbowRoll: -1.40867187480177}, 1.5)
+
+
+    super_spread_2 = pose.ToPose({
+      core.LHipYawPitch: -53.7092735014381,
+      core.LHipRoll: -2.8149395230157,
+      core.LHipPitch: -50.1837767379148,
+      core.LKneePitch: 109.071229384231,
+      core.LAnklePitch: -31.1160742357736,
+      core.LAnkleRoll: 3.07380369255918,
+      core.RHipYawPitch: -53.7092735014381,
+      core.RHipRoll: -17.2243710489382,
+      core.RHipPitch: -59.3293180742919,
+      core.RKneePitch: 112.328034335222,
+      core.RAnklePitch: -29.9686707571032,
+      core.RAnkleRoll: 12.395140437794,
+      core.LShoulderPitch: -92.4596970585723,
+      core.LShoulderRoll: 8.43520166269571,
+      core.LElbowYaw: -1.1449992520826,
+      core.LElbowRoll: -1.8433177928247,
+      core.RShoulderPitch: -96.1559495505731,
+      core.RShoulderRoll: 7.20952421613692,
+      core.RElbowYaw: -1.22808167314663,
+      core.RElbowRoll: -1.40867187480177}, 3)
+
+    standingLeftArmPose = dict()
+    # standingLeftArmPose[core.LShoulderPitch] = 0
+    standingLeftArmPose[core.LShoulderRoll] = 90
+    # standingLeftArmPose[core.LElbowYaw] = -0
+    # standingLeftArmPose[core.LElbowRoll] = -0
+
+    standingRightArmPose = dict()
+    # standingRightArmPose[core.RShoulderPitch] = 0
+    standingRightArmPose[core.RShoulderRoll] = 90
+    # standingRightArmPose[core.RElbowYaw] = -0
+    # standingRightArmPose[core.RElbowRoll] = -0
+
+    standingBothArmPose = dict()
+    # standingBothArmPose[core.RShoulderPitch] = 1
+    standingBothArmPose[core.RShoulderRoll] = 90
+    # standingBothArmPose[core.RElbowYaw] = -0
+    # standingBothArmPose[core.RElbowRoll] = -0
+    # standingBothArmPose[core.LShoulderPitch] = 1
+    standingBothArmPose[core.LShoulderRoll] = 90
+    # standingBothArmPose[core.LElbowYaw] = -0
+    # standingBothArmPose[core.LElbowRoll] = -0
+
+    # for i in range(2, core.NUM_JOINTS):
+    #   val = util.getPoseJoint(i, standingLeftArmPose, False)
+    #   if val != None:
+    #     joint_commands.setJointCommand(i, val * core.DEG_T_RAD)
+
+    toPoseTime = 0.2
+    poses = {
+      "left": pose.ToPose(standingLeftArmPose, toPoseTime),
+      "right": pose.ToPose(standingRightArmPose, toPoseTime),
+      "center": pose.ToPose(standingBothArmPose, toPoseTime),
+      "no_block": pose.ToPose(cfgpose.standingPose, toPoseTime)
+    }
+
+    forward = Forward()
+    stand = StandStraight()
+    stand_2 = StandStraight()
+    shuffle = Shuffle()
+    sit = Sit()
+
+    # self.trans(stand, C, pose.ToPose(cfgpose.standingPose), C, blocker)
+    # self.trans(forward, C, stand_2, C, super_spread_2, T(3), stand, C,  blocker)
+    self.trans(forward, C, stand_2, C, blocker)
+
+    # for name in blocks:
+    #   b = blocks[name]
+    #   p = poses[name]
+    #   # self.trans(blocker, S(name), p, C, b, T(3), pose.ToPose(cfgpose.standingPose, toPoseTime), C, blocker)
+    #   self.trans(blocker, S(name), sit, T(0.5), super_spread, T(3), stand, C, shuffle, C,  blocker)
+
+      # pose.PoseSequence(cfgpose.sittingPoseV3, 1), T(2)
+    self.setFinish(None) # This ensures that the last node in trans is not the final node
 
 class Playing(LoopingStateMachine):
   """Attacking behavior, try to score"""
