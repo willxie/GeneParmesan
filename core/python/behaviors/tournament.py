@@ -47,7 +47,6 @@ class Scan(Node):
     if self.getTime() > 4.0:
       self.finish()
 
-
 # Sub tasks
 class Stand(Node):
   def run(self):
@@ -78,8 +77,8 @@ def align_goal(vel_y):
   goal = memory.world_objects.getObjPtr(core.WO_OPP_GOAL)
 
   # Goal centered threshold
-  goal_x_right_threshold = 360.0 / 2 + 20
-  goal_x_left_threshold  = 360.0 / 2 - 20
+  goal_x_right_threshold = 360.0 / 2 + 30
+  goal_x_left_threshold  = 360.0 / 2 - 30
 
   goal_aligned = False
   if not goal.fromTopCamera:
@@ -95,7 +94,7 @@ def align_goal(vel_y):
       vel_y = -abs(vel_y)
 
       # Slow down when the goal is closer to alignment (center of top frame)
-      vel_y = vel_y * (2.0/5.0)
+      vel_y = vel_y * (1.5/5.0)
     if (goal.imageCenterX < goal_x_right_threshold) and (goal.imageCenterX > goal_x_left_threshold):
       goal_aligned = True
 
@@ -120,7 +119,7 @@ class Dribble(Node):
       vel_y += vel_y_gain * (x_desired - ball.imageCenterX) / (x_desired)
       vel_x = 0.4
     else:
-      vel_x = -0.4
+      vel_x = -0.45
 
     # TODO what if the goal is not seen???
     if goal.seen:
@@ -214,7 +213,7 @@ class PreKick(Node):
     ball_aligned = False
 
     # Target position of the ball in bottom camera
-    x_desired = 140.0
+    x_desired = 130.0
     y_desired = 225.0
 
     # Ball centered threshold

@@ -459,7 +459,7 @@ bool ImageProcessor::findGoal(std::vector<Blob>& blob_list) {
 			continue;
 		}
 
-		const int area_threshold = 400;
+		const int area_threshold = 250;
 //		printf("goal area = %d\n", blob.area);
 		// Take out small blobs, the goal should be BIG relative to other blue things
 		if (blob.area < area_threshold) {
