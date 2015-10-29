@@ -496,8 +496,6 @@ class Blocker(Node):
     if self.getTime() < 1.0:
       memory.speech.say("Come at me Jake!")
 
-    commands.stand()
-
     ball = mem_objects.world_objects[core.WO_BALL]
 
     commands.setHeadPan(ball.bearing, 1.0)
@@ -510,6 +508,13 @@ class Blocker(Node):
       x_head_turn = -(ball_x-(320.0 / 2.0)) / 160.0
       commands.setHeadPan(x_head_turn, .5)
 
+      # if ball.bearing > 0.50:
+      #   commands.setWalkVelocity(0, 0, 0.15)
+      # if ball.bearing < -0.50:
+      #   commands.setWalkVelocity(0, 0, -0.15)
+      # else:
+      #   commands.stand()
+
       # Max size is 6
       if len(self.vel_list) > 3:
         self.vel_list = self.vel_list[:-1]
@@ -519,15 +524,11 @@ class Blocker(Node):
       y_intersect = (ball.absVel.y / ball.absVel.x) * (-600 - ball.loc.x) + ball.loc.y
       UTdebug.log(15, "y_intersect: {}".format(y_intersect))
 
-
-    if ball.distance < 1500:
-      # TODO
-      accel = (self.vel_list[-1] - self.vel_list[0]) / float(len(self.vel_list))
-      # ball_loc_pred = abs(ball.absVel.x * 3)
-      t = 3
-      ball_loc_pred = (ball.absVel.x * t) + ((t * t) / 2 * accel)
-      # if abs(ball.absVel.x * 3) > ball.distance:
-      if True:
+      if ball.distance < 1200:
+        accel = (self.vel_list[-1] - self.vel_list[0]) / float(len(self.vel_list))
+        # ball_loc_pred = abs(ball.absVel.x * 3)
+        t = 3
+        ball_loc_pred = (ball.absVel.x * t) + ((t * t) / 2 * accel)
         # Find left or right or center block
         y_intersect = (ball.absVel.y / ball.absVel.x) * (-750 - ball.loc.x) + ball.loc.y
 
@@ -540,23 +541,34 @@ class Blocker(Node):
         # print('XVEL_LENGTH = {}'.format(len(self.vel_list)))
         # print('XVEL_AVG = {}'.format(xvel_avg))
 
+        print 'DISTANCE: ', ball.distance
         min_xvel_avg = -400
 
+        # Filter out suspicious
+        if xvel_avg < -1000:
+          print 'BOGUS xvel_avg: ', xvel_avg
+          self.vel_list = []
+          return
+
+        # print 'xvel_avg: ', xvel_avg
+        # print 'vel_list: ', self.vel_list
         # if ball.bearing > 30 * core.DEG_T_RAD:
-        if xvel_avg < min_xvel_avg:
-          if 130 < y_intersect < 750:
+        if xvel_avg < min_xvel_avg or ball.distance < 400:
+          # print 'TRIGGERED xvel_avg: ', xvel_avg
+          # print 'TRIGGERED vel_list: ', self.vel_list
+          if 0 < y_intersect < 750:
             choice = "left"
             # elif ball.bearing < -30 * core.DEG_T_RAD:
-          elif -140 < y_intersect < 130:
-            choice = "center"
-          elif -750 < y_intersect < -140:
+          elif -750 < y_intersect <= 0:
             choice = "right"
           else:
-            choice = "center"
+            choice = "right"
           self.vel_list = []
           self.postSignal(choice)
         else:
           self.vel_list = []
+      # else:
+      #   commands.stand()
 
 class StepBlock(Node):
   def run(self):
@@ -716,7 +728,7 @@ class Set(LoopingStateMachine):
     sit = Sit()
 
     # self.trans(stand, C, pose.ToPose(cfgpose.standingPose), C, blocker)
-    self.trans(forward, C, stand_2, C, super_spread_2, T(3), stand, C, blocker)
+    self.trans(forward, C, stand, C, blocker)
     # self.trans(forward, C, stand_2, C, blocker)
 
     for name in blocks:
@@ -724,7 +736,8 @@ class Set(LoopingStateMachine):
       p = poses[name]
       # self.trans(blocker, S(name), p, C, b, T(3), pose.ToPose(cfgpose.standingPose, toPoseTime), C, blocker)
       # self.trans(blocker, S(name), sit, t(0.5), super_spread, t(3), stand, c, shuffle, c,  blocker)
-      self.trans(blocker, S(name), b, T(5.0), blocker)
+      self.trans(blocker, S(name), b, T(5.0), stand)
+
 
       # pose.PoseSequence(cfgpose.sittingPoseV3, 1), T(2)
     self.setFinish(None) # This ensures that the last node in trans is not the final node
