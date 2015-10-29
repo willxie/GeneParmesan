@@ -34,7 +34,6 @@ class Scan(Node):
       beacon = memory.world_objects.getObjPtr(key)
       if beacon.seen:
         set_turn_direction(key)
-        print("Changing robot direction to: {}".format(turn_dir))
 
     # Turn head
     if self.getTime() < 1.0:
@@ -148,7 +147,6 @@ class AlignGoal(Node):
     # Change turn direction based on the last seen beacon (ccw or right)
     global turn_dir
     if turn_dir:
-      print("Changing robot direction to: {}".format(turn_dir))
       vel_y = 0.50
 
     goal_aligned = False
@@ -273,7 +271,9 @@ class PreKick(Node):
 
     # If goal not seen, do nothing for now. We are assuming that the goal is relatively aligned
     if goal.seen:
-      vel_y, goal_aligned = align_goal(vel_y)    # Exit condition
+      goal_x_desired = 360.0 / 2
+      # Center goal
+      vel_y = vel_y_gain * (goal_x_desired - goal.imageCenterX) / (goal_x_desired)
 
     # Exit condition
     if ball_aligned:
