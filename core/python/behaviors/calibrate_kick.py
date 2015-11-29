@@ -76,12 +76,12 @@ class ChangeStiff(Node):
   left_joint = 0.0
   everything_else = 1.0
   OneLegSoft = [0] * core.NUM_JOINTS
-  OneLegSoft[core.HeadYaw] = 1.0
-  OneLegSoft[core.HeadPitch] = 1.0
-  OneLegSoft[core.LShoulderPitch] = 0.1
-  OneLegSoft[core.LShoulderRoll] = 0.1
-  OneLegSoft[core.LElbowYaw] = 0.1
-  OneLegSoft[core.LElbowRoll] = 0.1
+  OneLegSoft[core.HeadYaw] = 0.0
+  OneLegSoft[core.HeadPitch] = 0.0
+  OneLegSoft[core.LShoulderPitch] = 0.0
+  OneLegSoft[core.LShoulderRoll] = 0.0
+  OneLegSoft[core.LElbowYaw] = 1.0
+  OneLegSoft[core.LElbowRoll] = 1.0
   OneLegSoft[core.LHipYawPitch] = 0.0
   OneLegSoft[core.LHipPitch] = 0.0
   OneLegSoft[core.LHipRoll] = 0.0
@@ -90,14 +90,14 @@ class ChangeStiff(Node):
   OneLegSoft[core.LAnkleRoll] = 0.0
   OneLegSoft[core.RHipYawPitch] = 1.0
   OneLegSoft[core.RHipPitch] = 1.0
-  OneLegSoft[core.RHipRoll] = 0.0
+  OneLegSoft[core.RHipRoll] = 1.0
   OneLegSoft[core.RKneePitch] = 1.0
   OneLegSoft[core.RAnklePitch] = 1.0
-  OneLegSoft[core.RAnkleRoll] = 0.0
-  OneLegSoft[core.RShoulderPitch] = 0.1
-  OneLegSoft[core.RShoulderRoll] = 0.1
-  OneLegSoft[core.RElbowYaw] = 0.1
-  OneLegSoft[core.RElbowRoll] = 0.1
+  OneLegSoft[core.RAnkleRoll] = 1.0
+  OneLegSoft[core.RShoulderPitch] = 1.0
+  OneLegSoft[core.RShoulderRoll] = 1.0
+  OneLegSoft[core.RElbowYaw] = 1.0
+  OneLegSoft[core.RElbowRoll] = 1.0
 
   def run(self):
     commands.setStiffness(ChangeStiff.OneLegSoft)
@@ -141,13 +141,36 @@ class Playing(StateMachine):
   def setup(self):
     memory.speech.say("Let's calibrate'!")
 
+    kick_pose = pose.ToPose({
+      core.LHipYawPitch: 0.178185975067293,
+      core.LHipRoll: -16.3502707597166,
+      core.LHipPitch: -32.9569878020105,
+      core.LKneePitch: 65.9164003211764,
+      core.LAnklePitch: -35.3348771804154,
+      core.LAnkleRoll: 9.1383286566135,
+      core.RHipYawPitch: 0.178185975067293,
+      core.RHipRoll: 20.2174965470211,
+      core.RHipPitch: -28.3914298135855,
+      core.RKneePitch: 50.8038213107686,
+      core.RAnklePitch: -25.2225225670231,
+      core.RAnkleRoll: -20.1247972196057,
+      core.LShoulderPitch: -90.6139682089706,
+      core.LShoulderRoll: 7.81996554301764,
+      core.LElbowYaw: -0.881326629363425,
+      core.LElbowRoll: -2.37067669864139,
+      core.RShoulderPitch: -90.8824356244871,
+      core.RShoulderRoll: 6.33060181336134,
+      core.RElbowYaw: -0.96440905042746,
+      core.RElbowRoll: -2.72704864877597,
+    }, 1)
+
     # Movements
     stand = Stand()
     sit = Sit()
     fake_sit = FakeSit()
     off = Off()
     change_stiff = ChangeStiff()
-    self.trans(stand, C, fake_sit, C, change_stiff)
+    self.trans(stand, C, fake_sit, C, kick_pose, T(10), change_stiff)
     # self.trans(stand, C, fake_sit, C, off)
 
 
