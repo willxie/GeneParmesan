@@ -6,6 +6,7 @@ from state_machine import *
 import random
 from memory import joint_commands
 
+
 class ChangeStiff(Node):
   OneLegSoft = [0] * core.NUM_JOINTS
   OneLegSoft[core.HeadYaw] = 0.0
@@ -36,6 +37,18 @@ class ChangeStiff(Node):
     if self.getTime() > 20.0:
       self.finish()
 
+class Stand(Node):
+  def run(self):
+    commands.stand()
+    if self.getTime() > 3.0:
+      self.finish()
+
+class Sit(Node):
+  def run(self):
+    pose.Sit()
+    if self.getTime() > 3.0:
+      memory.speech.say("Sitting complete")
+      self.finish()
 
 class FakeSit(Node):
   def run(self):
@@ -53,7 +66,6 @@ class Stand(Node):
 class BlockLeft(Node):
   def run(self):
 
-
     UTdebug.log(15, "Blocking left")
     if self.getTime() < 1.0:
       memory.speech.say("Blocking left")
@@ -66,6 +78,19 @@ class BlockRight(Node):
 
 class BlockCenter(Node):
   def run(self):
+    # Block center!
+    # self.setSubtask(
+    #   pose.PoseSequence(
+    #     cfgpose.goalieSquatPart1, 0.4,
+    #     cfgpose.goalieSquatPart2, 0.2,
+    #     cfgpose.goalieSquatPart2, 3.0,
+    #     cfgpose.goalieSquat5, 0.2,
+    #     cfgpose.goalieSquat5, 0.3,
+    #     cfgpose.goalieSquatPart2, 0.3,
+    #     cfgpose.goalieSquatGetup15, 0.4,
+    #     cfgpose.goalieSquatGetup2, 0.6,
+    #     cfgpose.goalieSquatGetup7, 0.3))
+
     UTdebug.log(15, "Blocking center")
     if self.getTime() < 1.0:
       memory.speech.say("Blocking center")
@@ -84,7 +109,7 @@ class Blocker(Node):
 
   def run(self):
     if self.getTime() < 1.0:
-      memory.speech.say("Come at me Jake!")
+      memory.speech.say("Blocker!")
 
     ball = mem_objects.world_objects[core.WO_BALL]
     commands.setHeadPan(ball.bearing, 1.0)
@@ -130,15 +155,13 @@ class Blocker(Node):
 
         # if ball.bearing > 30 * core.DEG_T_RAD:
         if xvel_avg < min_xvel_avg:
-          if 130 < y_intersect < 500:
+          if 0 < y_intersect < 500:
             choice = "left"
             # elif ball.bearing < -30 * core.DEG_T_RAD:
-          elif -140 < y_intersect < 130:
-            choice = "center"
-          elif -500 < y_intersect < -140:
+          elif -500 < y_intersect < -0:
             choice = "right"
-          # else:
-          #   choice = "no_block"
+          else:
+            choice = "left"
           self.vel_list = []
           self.postSignal(choice)
         else:
@@ -183,29 +206,23 @@ class Playing(LoopingStateMachine):
     #   if val != None:
     #     joint_commands.setJointCommand(i, val * core.DEG_T_RAD)
 
+
+
     toPoseTime = 0.2
     poses = {
-      "left": pose.ToPose(standingLeftArmPose, toPoseTime),
-      "right": pose.ToPose(standingRightArmPose, toPoseTime),
-      "center": pose.ToPose(standingBothArmPose, toPoseTime),
-      "no_block": pose.ToPose(cfgpose.standingPose, toPoseTime)
+      "left": pose.BlockLeft(),
+      "right": pose.BlockRight(),
+      "center": pose.BlockLeft(),
+      "no_block": pose.BlockLeft()
     }
 
     stand = Stand()
 
-    self.trans(stand, C, pose.ToPose(cfgpose.standingPose), C, blocker)
+    self.trans(stand, C, blocker)
 
     for name in blocks:
       b = blocks[name]
       p = poses[name]
-      self.trans(blocker, S(name), p, C, b, T(3), pose.ToPose(cfgpose.standingPose, toPoseTime), C, blocker)
+      self.trans(blocker, S(name), p, T(3), pose.PoseSequence(cfgpose.sittingPoseV3, 3.0), C, Stand(), C, blocker)
 
     self.setFinish(None) # This ensures that the last node in trans is not the final node
-
-class Set(StateMachine):
-  def setup(self):
-    # Movements
-    stand = Stand()
-    fake_sit = FakeSit()
-    change_stiff = ChangeStiff()
-    self.trans(stand, C, fake_sit, C, change_stiff)

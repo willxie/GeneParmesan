@@ -8,8 +8,8 @@ class Stand(Node):
   def run(self):
     commands.stand()
     if self.getTime() > 3.0:
-#      memory.speech.say("Standing complete")
-      self.finish()
+     memory.speech.say("Standing complete")
+     self.finish()
 
 class Sit(Node):
   def run(self):
@@ -302,10 +302,6 @@ class TrackBall(Node):
       # y_head_tilt = -(ball_y-(240.0 / 2.0)) / 120.0 * 30
       # # print('Y HEAD TILT: {}'.format(y_head_tilt))
       # commands.setHeadTilt(y_head_tilt)
-      self.reset()
-
-    if self.getTime() > 3.0:
-      self.postSignal(self.inSignal())
 
 # Button behaviors
 class Ready(Task):
@@ -315,26 +311,76 @@ class Ready(Task):
       memory.speech.say("I am ready")
       self.finish()
 
-class Set(Task):
-  def run(self):
-    if self.getTime() < 1.0:
-      memory.speech.say("Goalie")
-
-    ball = memory.world_objects.getObjPtr(core.WO_BALL)
-    if ball.seen:
-      BEARING_THRESHOLD = .2
-      LATERAL_VELOCITY = .2
-      TURNING_OFFSET = .05
-      if abs(ball.bearing) < BEARING_THRESHOLD:
-        print 'LESSSS', ball.bearing
-        commands.setWalkVelocity(0, 0, 0)
+class Set(LoopingStateMachine):
+  class ScanForBall(Node):
+    """Look left and right until the ball is located"""
+    def run(self):
+      if int(self.getTime()) % 4 >= 2:
+        memory.speech.say("left")
+        commands.setHeadPan(1.5, 1.5)
       else:
-        print 'MOOOOAR', ball.bearing
-        commands.setWalkVelocity(0, ball.bearing, TURNING_OFFSET)
-    else:
-      print 'NOOOOOWHERE'
-      commands.setWalkVelocity(0, 0, 0)
+        memory.speech.say("right")
+        commands.setHeadPan(-1.5, 1.5)
       
+      ball = memory.world_objects.getObjPtr(core.WO_BALL)
+      if ball.seen:
+        self.finish()
+
+  class TrackBall(Node):
+    """Sit still and turn your head to follow the ball"""
+    def run(self):
+      ball = memory.world_objects.getObjPtr(core.WO_BALL)
+      if not ball.seen:
+        return
+
+      ball_x, ball_y = ball.imageCenterX, ball.imageCenterY
+      x_head_turn = -(ball_x-(320.0 / 2.0)) / 160.0
+
+      commands.setHeadPan(x_head_turn, 1)
+
+      if self.getTime() < 5.0:
+        return
+  
+      BEARING_THRESHOLD = .3
+      if abs(ball.bearing) > BEARING_THRESHOLD:
+        if ball.bearing < 0:
+          self.postSignal("right")
+        elif ball.bearing > 0:
+          self.postSignal("left")
+
+  class StepLeft(Node):
+    """Take one step to the left"""
+    def run(self):
+      commands.setWalkVelocity(0, 1, .15)
+      if self.getTime() > 2.0:
+        commands.setWalkVelocity(0, 0, 0)
+        self.finish()
+
+  class StepRight(Node):
+    """Take one step to the right"""
+    def run(self):
+      commands.setWalkVelocity(0, -1, -.01)
+      if self.getTime() > 2.0:
+        commands.setWalkVelocity(0, 0, 0)
+        self.finish()
+      
+  def setup(self):
+    stand = Stand()
+    scan_for_ball = Set.ScanForBall()
+    track_ball = Set.TrackBall()
+    step_left, step_right = Set.StepLeft(), Set.StepRight()
+
+    self.trans(stand, C, scan_for_ball)
+    self.trans(scan_for_ball, C, track_ball)
+
+    # If you see the ball to your left, step left
+    self.trans(track_ball, S("left"), step_left)
+    # Same thing for right
+    self.trans(track_ball, S("right"), step_right)
+
+    # Immediately go back to tracking the ball
+    self.trans(step_left, C, track_ball)
+    self.trans(step_right, C, track_ball)
 
 class Playing(StateMachine):
   """Forward Walking and Turn in Place"""
