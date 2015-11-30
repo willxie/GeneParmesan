@@ -1,7 +1,16 @@
+import pickle
+
+import numpy as np
+
+import json
+
 import core
 import commands 
 import mem_objects
 from state_machine import *
+
+from softmax import Softmax
+
 
 SIM_WIDTH = 3000.
 SIM_HEIGHT = 2000.
@@ -11,7 +20,11 @@ CLF_WIDTH = 4.
 CLF_HEIGHT = 6.
 CLF_GOALIE = (2.,0.)
 
-def transform(x, y):
+# Load whichever model we've pickled
+model = pickle.load(open('model.p', 'rb'))
+clf, features, WINDOW_SIZE = model['clf'], model['features'], model['window_size']
+
+def transform_p(x, y):
     """Take a point in sim space and map it into clf space
     
     Note that we are dealing with SIM_HEIGHT/2 because the classifier space is
@@ -27,30 +40,120 @@ def transform(x, y):
 
     return x____, y____
 
+def transform_v(x, y):
+    """Take a velocity in sim space and transform it to clf space
+    
+    All we have to do is divide by the sim space dimensions and multiply by the
+    clf dimensions
+    
+    """
+    return -(x/SIM_WIDTH)*CLF_WIDTH, (y/SIM_HEIGHT)*CLF_HEIGHT 
 
-class Playing(Node):
+
+class DistanceBearingBlocker(Node):
+    BALL_NOT_SEEN_THRESHOLD = 5
+
+    def __init__(self):
+        super(DistanceBearingBlocker, self).__init__()
+        self.num_ball_not_seen = 0
+        self.xs, self.ys = [], []
+
+    def run(self):
+        pass
+
+class PositionBlocker(Node):
+    BALL_NOT_SEEN_THRESHOLD = 5
+
+    def __init__(self):
+        super(PositionBlocker, self).__init__()
+        self.num_ball_not_seen = 0
+        self.xs, self.ys = [], []
+
+    def run(self):
+        ball = mem_objects.world_objects[core.WO_BALL]
+        commands.setHeadPan(ball.bearing, .3)
+        if not ball.seen:
+            self.num_ball_not_seen += 1
+
+            if self.num_ball_not_seen > PositionBlocker.BALL_NOT_SEEN_THRESHOLD:
+                self.num_ball_not_seen = 0
+                self.xs, self.ys = [], []
+
+            return
+
+        # Turn head to face ball
+        ball_frame_x, ball_frame_y = ball.imageCenterX, ball.imageCenterY
+        x_head_turn = -(ball_frame_x-(320.0 / 2.0)) / 160.0
+        commands.setHeadPan(x_head_turn, .5)
+
+        # Read ball coordinates
+        x, y = ball.loc.x, ball.loc.y
+        dx, dy = ball.absVel.x, ball.absVel.y
+
+        x_, y_ = transform_p(x, y)
+        self.xs, self.ys = self.xs + [x_], self.ys + [y_]
+        UTdebug.log(15, 'len(xs): {}'.format(len(self.xs)))
+        if len(self.xs) < WINDOW_SIZE:
+            # Not enough points to make a prediction
+            UTdebug.log(15, 'Returning!')
+            return
+
+        # Need to trim a point off?
+        if len(self.xs) > WINDOW_SIZE:
+            self.xs, self.ys = self.xs[1:], self.ys[1:]
+
+        UTdebug.log(15, 'Position: (x={}, y={})'.format(x, y))
+        UTdebug.log(15, "Position: (x'={}, y'={})".format(*transform_p(x, y)))
+        UTdebug.log(15, 'Velocity: (dx={}, dy={})'.format(dx, dy))
+        UTdebug.log(15, "Velocity: (dx'={}, dy'={})".format(*transform_v(dx, dy)))
+
+        # Predict based on the position
+        X = np.array(self.xs + self.ys).reshape(2*WINDOW_SIZE, 1)
+        Y = clf.predict(X)
+
+        UTdebug.log(15, 'X: {}'.format(X))
+        UTdebug.log(15, 'Y: {}'.format(Y))
+
+class PositionVelocityBlocker(Node):
+    def __init__(self):
+        super(PositionVelocityBlocker, self).__init__()
+
     def run(self):
         ball = mem_objects.world_objects[core.WO_BALL]
         commands.setHeadPan(ball.bearing, .3)
         if not ball.seen:
             return
 
-        # Turn head to ball
+        # Turn head to face ball
         ball_frame_x, ball_frame_y = ball.imageCenterX, ball.imageCenterY
         x_head_turn = -(ball_frame_x-(320.0 / 2.0)) / 160.0
         commands.setHeadPan(x_head_turn, .5)
 
-        # Find left or right or center block
-        y_intersect = (ball.absVel.y / ball.absVel.x) * (-750 - ball.loc.x) + ball.loc.y
+        # Read ball coordinates
         x, y = ball.loc.x, ball.loc.y
+        dx, dy = ball.absVel.x, ball.absVel.y
 
-        UTdebug.log(15, 'Bottom Left: (x={}, y={})'.format(*transform(-1500, -1000)))
-        UTdebug.log(15, 'Top Left: (x={}, y={})'.format(*transform(-1500, 1000)))
-        UTdebug.log(15, 'Top Right: (x={}, y={})'.format(*transform(1500, 1000)))
-        UTdebug.log(15, 'Bottom Right: (x={}, y={})'.format(*transform(1500, -1000)))
-        UTdebug.log(15, 'Goalie: (x={}, y={})'.format(*transform(*SIM_GOALIE)))
+        # Tranform into clf space
+        x_, y_, = transform_p(x, y)
+        dx_, dy_, = transform_v(dx, dy)
 
-        if -500 < y_intersect < 500:
-            UTdebug.log(15, 'Shot!')
-        else:
-            UTdebug.log(15, 'No Shot!')
+        UTdebug.log(15, 'X: [{}, {}, {}, {}]'.format(x_, y_, dx_, dy_))
+        UTdebug.log(15, "Position: (x={}, y={})".format(*transform_p(x, y)))
+        UTdebug.log(15, "Velocity: (dx={}, dy={})".format(*transform_v(dx, dy)))
+
+        # Predict based on the position
+        X = np.array([x_, y_, dx_, dy_]).reshape(4, 1)
+        scores, y = clf.predict(X)
+
+        UTdebug.log(15, 'Y: {}'.format(y))
+        UTdebug.log(15, 'scores: {}'.format(scores))
+
+
+class Playing(LoopingStateMachine):
+    def setup(self):
+        blockers = {
+                'position': PositionBlocker(),
+                'position+velocity': PositionVelocityBlocker(),
+                'distance+bearing': DistanceBearingBlocker() }
+
+        self.trans(blockers[features])
