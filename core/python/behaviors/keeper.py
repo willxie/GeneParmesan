@@ -1,28 +1,72 @@
+import os
+import math
 import pickle
 
 import numpy as np
 
-import json
-
+import memory
 import core
+import pose, cfgpose
 import commands 
 import mem_objects
 from state_machine import *
 
 from softmax import Softmax
 
+# Blocking motion
+STANDING_BOTH_ARM_POSE = dict()
+STANDING_BOTH_ARM_POSE[core.RShoulderRoll] = 90
+STANDING_BOTH_ARM_POSE[core.LShoulderRoll] = 90
 
+BLOCK_ACTION = pose.ToPose(STANDING_BOTH_ARM_POSE, 1)
+
+SITTING_POSE = dict()
+SITTING_POSE[core.HeadYaw] = 3.68905347261559
+SITTING_POSE[core.HeadPitch] = -21.8826420251569
+SITTING_POSE[core.LHipYawPitch] = -5.00743024658979
+SITTING_POSE[core.LHipRoll] = 0.349159270371052
+SITTING_POSE[core.LHipPitch] = -46.5802099129511
+SITTING_POSE[core.LKneePitch] = 122.430772042263
+SITTING_POSE[core.LAnklePitch] = -69.1732052721677
+SITTING_POSE[core.LAnkleRoll] = 0.173377521891604
+SITTING_POSE[core.RHipYawPitch] = -5.00743024658979
+SITTING_POSE[core.RHipRoll] = 0.00240422658784449
+SITTING_POSE[core.RHipPitch] = -46.7608001146063
+SITTING_POSE[core.RKneePitch] = 123.753957269413
+SITTING_POSE[core.RAnklePitch] = -70.135196435629
+SITTING_POSE[core.RAnkleRoll] = -0.0854866476518796
+SITTING_POSE[core.LShoulderPitch] = -90.4381864604912
+SITTING_POSE[core.LShoulderRoll] = 2.01909954130415
+SITTING_POSE[core.LElbowYaw] = -0.529749472026189
+SITTING_POSE[core.LElbowRoll] = -1.4917542958658
+SITTING_POSE[core.RShoulderPitch] = -91.0582242031558
+SITTING_POSE[core.RShoulderRoll] = 1.05710837784287
+SITTING_POSE[core.RElbowYaw] = -0.437050144610776
+SITTING_POSE[core.RElbowRoll] = -0.441858597786465
+
+SIT_ACTION = pose.ToPose(SITTING_POSE, 1)
+
+# Simulator-space dimensions
 SIM_WIDTH = 3000.
 SIM_HEIGHT = 2000.
 SIM_GOALIE = (-750.,0.)
 
+# Classifier-space dimensions
 CLF_WIDTH = 4.
 CLF_HEIGHT = 6.
 CLF_GOALIE = (2.,0.)
 
 # Load whichever model we've pickled
-model = pickle.load(open('model.p', 'rb'))
-clf, features, WINDOW_SIZE = model['clf'], model['features'], model['window_size']
+home = os.environ['HOME']
+try:
+    f = open(home + '/python/behaviors/model.py', 'rb')
+except Error:
+    f = open(home + '/trunk/core/python/behaviors/model.py', 'rb')
+
+# Extract the model
+model = pickle.load(f)
+clf, FEATURES, WINDOW_SIZE = model['clf'], model['features'], model['window_size']
+f.close()
 
 def transform_p(x, y):
     """Take a point in sim space and map it into clf space
@@ -49,6 +93,28 @@ def transform_v(x, y):
     """
     return -(x/SIM_WIDTH)*CLF_WIDTH, (y/SIM_HEIGHT)*CLF_HEIGHT 
 
+def transform_d(r, theta):
+    """Take a distance in sim space and translate to clf space
+
+    - Convert to cartesian
+    - Map to clf space
+    - Recompute r'
+
+    """
+    x, y = r*math.cos(theta), r*math.sin(theta)
+    x_, y_ = x/SIM_WIDTH, y/SIM_HEIGHT
+    x__, y__ = CLF_WIDTH*x_, CLF_HEIGHT*y_
+
+    return math.sqrt(x__**2 + y__**2)
+
+def transform_theta(theta):
+    """"Take a theta in sim space and map it to clf space
+
+    This is the easiest transformation of all -- it is the identity mapping!
+
+    """
+    return theta
+
 
 class DistanceBearingBlocker(Node):
     BALL_NOT_SEEN_THRESHOLD = 5
@@ -56,10 +122,58 @@ class DistanceBearingBlocker(Node):
     def __init__(self):
         super(DistanceBearingBlocker, self).__init__()
         self.num_ball_not_seen = 0
-        self.xs, self.ys = [], []
+        self.distances, self.bearings = [], []
 
     def run(self):
-        pass
+        ball = mem_objects.world_objects[core.WO_BALL]
+        commands.setHeadPan(ball.bearing, 1.0)
+        if not ball.seen:
+            self.num_ball_not_seen += 1
+
+            if self.num_ball_not_seen > PositionBlocker.BALL_NOT_SEEN_THRESHOLD:
+                self.num_ball_not_seen = 0
+                self.distances, self.bearings = [], []
+
+            return
+
+        # Turn head to face ball
+        ball_frame_x, ball_frame_y = ball.imageCenterX, ball.imageCenterY
+        x_head_turn = -(ball_frame_x-(320.0 / 2.0)) / 160.0
+        commands.setHeadPan(x_head_turn, .5)
+
+        # Read ball distance and bearing
+        distance, bearing = ball.distance, ball.bearing
+        distance_, bearing_ = transform_d(distance, bearing), transform_theta(bearing)
+
+        self.distances, self.bearings = self.distances + [distance_], self.bearings + [bearing_]
+        UTdebug.log(15, 'len(distances): {}'.format(len(self.distances)))
+        if len(self.distances) < WINDOW_SIZE:
+            # Not enough points to make a prediction
+            return
+
+        # Need to trim a point off?
+        if len(self.distances) > WINDOW_SIZE:
+            self.distances, self.bearings = self.distances[1:], self.bearings[1:]
+
+        UTdebug.log(15, 'Distance: {}'.format(distance))
+        UTdebug.log(15, "Distance': {}".format(distance_))
+        UTdebug.log(15, 'Bearing: {}'.format(bearing))
+        UTdebug.log(15, "Bearing: {}".format(bearing_))
+
+        # Predict based on the position
+        X = np.array(self.distances + self.bearings).reshape(2*WINDOW_SIZE, 1)
+        scores, Y = clf.predict(X)
+
+        UTdebug.log(15, 'X: {}'.format(X))
+        UTdebug.log(15, 'Y: {}'.format(Y))
+        UTdebug.log(15, 'scores: {}'.format(scores))
+
+        print scores
+
+        # Transition to goal pose?
+        if Y[0]:
+            self.distances, self.bearings = [], []
+            self.finish()
 
 class PositionBlocker(Node):
     BALL_NOT_SEEN_THRESHOLD = 5
@@ -109,10 +223,11 @@ class PositionBlocker(Node):
 
         # Predict based on the position
         X = np.array(self.xs + self.ys).reshape(2*WINDOW_SIZE, 1)
-        Y = clf.predict(X)
+        scores, Y = clf.predict(X)
 
         UTdebug.log(15, 'X: {}'.format(X))
         UTdebug.log(15, 'Y: {}'.format(Y))
+        UTdebug.log(15, 'scores: {}'.format(scores))
 
 class PositionVelocityBlocker(Node):
     def __init__(self):
@@ -148,7 +263,6 @@ class PositionVelocityBlocker(Node):
         UTdebug.log(15, 'Y: {}'.format(y))
         UTdebug.log(15, 'scores: {}'.format(scores))
 
-
 class Playing(LoopingStateMachine):
     def setup(self):
         blockers = {
@@ -156,4 +270,10 @@ class Playing(LoopingStateMachine):
                 'position+velocity': PositionVelocityBlocker(),
                 'distance+bearing': DistanceBearingBlocker() }
 
-        self.trans(blockers[features])
+        self.trans(
+                blockers[FEATURES], C,
+                BLOCK_ACTION, C,
+                SIT_ACTION, C,
+                blockers[FEATURES])
+
+        self.setFinish(None) # This ensures that the last node in trans is not the final node
