@@ -16,4 +16,4 @@ bin/sshlog
 logs*
 *.orig
 *fontconfig
-model.p
+model.py
