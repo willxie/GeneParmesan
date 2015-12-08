@@ -6,6 +6,34 @@ from state_machine import *
 import random
 from memory import joint_commands
 
+# Sitting pose
+SITTING_POSE = dict()
+SITTING_POSE[core.HeadYaw] = 3.68905347261559
+SITTING_POSE[core.HeadPitch] = -21.8826420251569
+SITTING_POSE[core.LHipYawPitch] = -5.00743024658979
+SITTING_POSE[core.LHipRoll] = 0.349159270371052
+SITTING_POSE[core.LHipPitch] = -46.5802099129511
+SITTING_POSE[core.LKneePitch] = 122.430772042263
+SITTING_POSE[core.LAnklePitch] = -69.1732052721677
+SITTING_POSE[core.LAnkleRoll] = 0.173377521891604
+SITTING_POSE[core.RHipYawPitch] = -5.00743024658979
+SITTING_POSE[core.RHipRoll] = 0.00240422658784449
+SITTING_POSE[core.RHipPitch] = -46.7608001146063
+SITTING_POSE[core.RKneePitch] = 123.753957269413
+SITTING_POSE[core.RAnklePitch] = -70.135196435629
+SITTING_POSE[core.RAnkleRoll] = -0.0854866476518796
+SITTING_POSE[core.LShoulderPitch] = -90.4381864604912
+SITTING_POSE[core.LShoulderRoll] = 2.01909954130415
+SITTING_POSE[core.LElbowYaw] = -0.529749472026189
+SITTING_POSE[core.LElbowRoll] = -1.4917542958658
+SITTING_POSE[core.RShoulderPitch] = -91.0582242031558
+SITTING_POSE[core.RShoulderRoll] = 1.05710837784287
+SITTING_POSE[core.RElbowYaw] = -0.437050144610776
+SITTING_POSE[core.RElbowRoll] = -0.441858597786465
+
+# Sitting action
+SIT_ACTION = pose.ToPose(SITTING_POSE, 1)
+
 class ChangeStiff(Node):
   OneLegSoft = [0] * core.NUM_JOINTS
   OneLegSoft[core.HeadYaw] = 0.0
@@ -52,30 +80,24 @@ class Stand(Node):
 
 class BlockLeft(Node):
   def run(self):
-
-
     UTdebug.log(15, "Blocking left")
-    if self.getTime() < 1.0:
-      memory.speech.say("Blocking left")
+    self.finish()
 
 class BlockRight(Node):
   def run(self):
     UTdebug.log(15, "Blocking right")
-    if self.getTime() < 1.0:
-      memory.speech.say("Blocking right")
+    self.finish()
 
 class BlockCenter(Node):
   def run(self):
     UTdebug.log(15, "Blocking center")
-    if self.getTime() < 1.0:
-      memory.speech.say("Blocking center")
+    self.finish()
 
 class NoBlock(Node):
   def run(self):
     UTdebug.log(15, "You missed the goal")
 
-    if self.getTime() < 1.0:
-      memory.speech.say("Haha")
+    self.finish()
 
 class Blocker(Node):
   def __init__(self):
@@ -84,7 +106,8 @@ class Blocker(Node):
 
   def run(self):
     if self.getTime() < 1.0:
-      memory.speech.say("Come at me Jake!")
+      pass
+      # memory.speech.say("Come at me Jake!")
 
     ball = mem_objects.world_objects[core.WO_BALL]
     commands.setHeadPan(ball.bearing, 1.0)
@@ -137,8 +160,8 @@ class Blocker(Node):
             choice = "center"
           elif -500 < y_intersect < -140:
             choice = "right"
-          # else:
-          #   choice = "no_block"
+          else:
+            choice = "no_block"
           self.vel_list = []
           self.postSignal(choice)
         else:
@@ -183,22 +206,22 @@ class Playing(LoopingStateMachine):
     #   if val != None:
     #     joint_commands.setJointCommand(i, val * core.DEG_T_RAD)
 
-    toPoseTime = 0.2
+    toPoseTime = 1.0
     poses = {
       "left": pose.ToPose(standingLeftArmPose, toPoseTime),
       "right": pose.ToPose(standingRightArmPose, toPoseTime),
       "center": pose.ToPose(standingBothArmPose, toPoseTime),
-      "no_block": pose.ToPose(cfgpose.standingPose, toPoseTime)
+      "no_block": pose.ToPose(SITTING_POSE, toPoseTime)
     }
 
-    stand = Stand()
+    # stand = Stand()
 
-    self.trans(stand, C, pose.ToPose(cfgpose.standingPose), C, blocker)
+    # self.trans(stand, C, pose.ToPose(cfgpose.standingPose), C, blocker)
 
     for name in blocks:
       b = blocks[name]
       p = poses[name]
-      self.trans(blocker, S(name), p, C, b, T(3), pose.ToPose(cfgpose.standingPose, toPoseTime), C, blocker)
+      self.trans(blocker, S(name), p, C, b, C, SIT_ACTION, C, blocker)
 
     self.setFinish(None) # This ensures that the last node in trans is not the final node
 

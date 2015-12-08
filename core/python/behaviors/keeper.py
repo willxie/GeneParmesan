@@ -13,13 +13,23 @@ from state_machine import *
 
 from softmax import Softmax
 
-# Blocking motion
-STANDING_BOTH_ARM_POSE = dict()
-STANDING_BOTH_ARM_POSE[core.RShoulderRoll] = 90
-STANDING_BOTH_ARM_POSE[core.LShoulderRoll] = 90
+# Blocking poses
+SITTING_BOTH_ARMS_POSE = dict()
+SITTING_BOTH_ARMS_POSE[core.RShoulderRoll] = 90
+SITTING_BOTH_ARMS_POSE[core.LShoulderRoll] = 90
 
-BLOCK_ACTION = pose.ToPose(STANDING_BOTH_ARM_POSE, 1)
+SITTING_LEFT_ARM_POSE = dict()
+SITTING_LEFT_ARM_POSE[core.LShoulderRoll] = 90
 
+SITTING_RIGHT_ARM_POSE = dict()
+SITTING_RIGHT_ARM_POSE[core.RShoulderRoll] = 90
+
+# Blocking actions
+MIDDLE_BLOCK_ACTION = pose.ToPose(SITTING_BOTH_ARMS_POSE, 1)
+LEFT_BLOCK_ACTION = pose.ToPose(SITTING_LEFT_ARM_POSE, 1)
+RIGHT_BLOCK_ACTION = pose.ToPose(SITTING_RIGHT_ARM_POSE, 1)
+
+# Sitting pose
 SITTING_POSE = dict()
 SITTING_POSE[core.HeadYaw] = 3.68905347261559
 SITTING_POSE[core.HeadPitch] = -21.8826420251569
@@ -44,6 +54,7 @@ SITTING_POSE[core.RShoulderRoll] = 1.05710837784287
 SITTING_POSE[core.RElbowYaw] = -0.437050144610776
 SITTING_POSE[core.RElbowRoll] = -0.441858597786465
 
+# Sitting action
 SIT_ACTION = pose.ToPose(SITTING_POSE, 1)
 
 # Simulator-space dimensions
@@ -59,9 +70,9 @@ CLF_GOALIE = (2.,0.)
 # Load whichever model we've pickled
 home = os.environ['HOME']
 try:
+    f = open(home + '/nao/trunk/core/python/behaviors/model.py', 'rb')
+except:
     f = open(home + '/python/behaviors/model.py', 'rb')
-except Error:
-    f = open(home + '/trunk/core/python/behaviors/model.py', 'rb')
 
 # Extract the model
 model = pickle.load(f)
@@ -115,165 +126,136 @@ def transform_theta(theta):
     """
     return theta
 
+class WindowedBlocker(Node):
+    """Use position or distance+bearing depending on classifier loaded in"""
 
-class DistanceBearingBlocker(Node):
     BALL_NOT_SEEN_THRESHOLD = 5
 
     def __init__(self):
-        super(DistanceBearingBlocker, self).__init__()
+        super(WindowedBlocker, self).__init__()
         self.num_ball_not_seen = 0
-        self.distances, self.bearings = [], []
+        self.x1s, self.x2s = [], []
+        self.ball_bearing = 0
 
     def run(self):
+        commands.setHeadPan(self.ball_bearing, 1.0)
+
         ball = mem_objects.world_objects[core.WO_BALL]
-        commands.setHeadPan(ball.bearing, 1.0)
         if not ball.seen:
             self.num_ball_not_seen += 1
 
-            if self.num_ball_not_seen > PositionBlocker.BALL_NOT_SEEN_THRESHOLD:
+            if self.num_ball_not_seen > WindowedBlocker.BALL_NOT_SEEN_THRESHOLD:
                 self.num_ball_not_seen = 0
-                self.distances, self.bearings = [], []
+                self.x1s, self.x2s = [], []
 
             return
 
-        # Turn head to face ball
-        ball_frame_x, ball_frame_y = ball.imageCenterX, ball.imageCenterY
-        x_head_turn = -(ball_frame_x-(320.0 / 2.0)) / 160.0
-        commands.setHeadPan(x_head_turn, .5)
+        self.ball_bearing = ball.bearing
 
-        # Read ball distance and bearing
-        distance, bearing = ball.distance, ball.bearing
-        distance_, bearing_ = transform_d(distance, bearing), transform_theta(bearing)
+        # Read features!
+        #
+        if FEATURES == 'position':
+            x1,  x2  = ball.loc.x, ball.loc.y
+            x1_, x2_ = transform_p(x1, x2)
+        elif FEATURES == 'distance+bearing':
+            x1,  x2  = ball.distance, ball.bearing
+            x1_, x2_ = transform_d(x1, x2), transform_theta(x2)
 
-        self.distances, self.bearings = self.distances + [distance_], self.bearings + [bearing_]
-        UTdebug.log(15, 'len(distances): {}'.format(len(self.distances)))
-        if len(self.distances) < WINDOW_SIZE:
+        self.x1s, self.x2s = self.x1s + [x1_], self.x2s + [x2_]
+        UTdebug.log(15, 'len(x1s): {}'.format(len(self.x1s)))
+        if len(self.x1s) < WINDOW_SIZE:
             # Not enough points to make a prediction
             return
 
         # Need to trim a point off?
-        if len(self.distances) > WINDOW_SIZE:
-            self.distances, self.bearings = self.distances[1:], self.bearings[1:]
+        if len(self.x1s) > WINDOW_SIZE:
+            self.x1s, self.x2s = self.x1s[1:], self.x2s[1:]
 
-        UTdebug.log(15, 'Distance: {}'.format(distance))
-        UTdebug.log(15, "Distance': {}".format(distance_))
-        UTdebug.log(15, 'Bearing: {}'.format(bearing))
-        UTdebug.log(15, "Bearing: {}".format(bearing_))
+        UTdebug.log(15, 'x1: {}'.format(x1))
+        UTdebug.log(15, "x2: {}".format(x2))
 
         # Predict based on the position
-        X = np.array(self.distances + self.bearings).reshape(2*WINDOW_SIZE, 1)
+        X = np.array(self.x1s + self.x2s).reshape(2*WINDOW_SIZE, 1)
         scores, Y = clf.predict(X)
 
-        UTdebug.log(15, 'X: {}'.format(X))
+        UTdebug.log(15, 'X[0]: {}'.format(X[0]))
         UTdebug.log(15, 'Y: {}'.format(Y))
         UTdebug.log(15, 'scores: {}'.format(scores))
-
-        print scores
 
         # Transition to goal pose?
         if Y[0]:
-            self.distances, self.bearings = [], []
-            self.finish()
+            if Y[0] == 1:
+                self.postSignal('right') # flipped!
+            elif Y[0] == 2:
+                self.postSignal('middle')
+            elif Y[0] == 3:
+                self.postSignal('left') # flipped!
 
-class PositionBlocker(Node):
-    BALL_NOT_SEEN_THRESHOLD = 5
+            self.x1s, self.x2s = [], []
 
+class MarkovBlocker(Node):
     def __init__(self):
-        super(PositionBlocker, self).__init__()
-        self.num_ball_not_seen = 0
-        self.xs, self.ys = [], []
+        super(MarkovBlocker, self).__init__()
+        self.ball_bearing = 0
 
     def run(self):
+        commands.setHeadPan(self.ball_bearing, 1.0)
+
         ball = mem_objects.world_objects[core.WO_BALL]
-        commands.setHeadPan(ball.bearing, .3)
         if not ball.seen:
-            self.num_ball_not_seen += 1
-
-            if self.num_ball_not_seen > PositionBlocker.BALL_NOT_SEEN_THRESHOLD:
-                self.num_ball_not_seen = 0
-                self.xs, self.ys = [], []
-
             return
 
-        # Turn head to face ball
-        ball_frame_x, ball_frame_y = ball.imageCenterX, ball.imageCenterY
-        x_head_turn = -(ball_frame_x-(320.0 / 2.0)) / 160.0
-        commands.setHeadPan(x_head_turn, .5)
+        self.ball_bearing = ball.bearing
 
-        # Read ball coordinates
-        x, y = ball.loc.x, ball.loc.y
-        dx, dy = ball.absVel.x, ball.absVel.y
+        # Collect features!
+        #
+        if FEATURES == 'position+velocity':
+            # Global readings
+            x, y = ball.loc.x, ball.loc.y
+            dx, dy = ball.absVel.x, ball.absVel.y
 
-        x_, y_ = transform_p(x, y)
-        self.xs, self.ys = self.xs + [x_], self.ys + [y_]
-        UTdebug.log(15, 'len(xs): {}'.format(len(self.xs)))
-        if len(self.xs) < WINDOW_SIZE:
-            # Not enough points to make a prediction
-            UTdebug.log(15, 'Returning!')
-            return
+            # Tranform into clf space
+            x_, y_, = transform_p(x, y)
+            dx_, dy_, = transform_v(dx, dy)
 
-        # Need to trim a point off?
-        if len(self.xs) > WINDOW_SIZE:
-            self.xs, self.ys = self.xs[1:], self.ys[1:]
+            # Predict based on the position
+            X = np.array([x_, y_, dx_, dy_]).reshape(4, 1)
 
-        UTdebug.log(15, 'Position: (x={}, y={})'.format(x, y))
-        UTdebug.log(15, "Position: (x'={}, y'={})".format(*transform_p(x, y)))
-        UTdebug.log(15, 'Velocity: (dx={}, dy={})'.format(dx, dy))
-        UTdebug.log(15, "Velocity: (dx'={}, dy'={})".format(*transform_v(dx, dy)))
+        elif FEATURES == 'position':
+            # Global readings
+            x, y = ball.loc.x, ball.loc.y
+            x_, y_, = transform_p(x, y)
 
-        # Predict based on the position
-        X = np.array(self.xs + self.ys).reshape(2*WINDOW_SIZE, 1)
+            # Predict based on the position
+            X = np.array([x_, y_]).reshape(2, 1)
+
+        elif FEATURES == 'distance+bearing':
+            # Global readings
+            distance,  bearing  = ball.distance, ball.bearing
+            distance_, bearing_ = transform_d(distance, bearing), transform_theta(bearing)
+
+            X = np.array([distance_, bearing_]).reshape(2, 1)
+
+        # Predict!
         scores, Y = clf.predict(X)
+        if Y[0]:
+            if Y[0] == 1:
+                self.postSignal('right') # flipped!
+            elif Y[0] == 2:
+                self.postSignal('middle')
+            elif Y[0] == 3:
+                self.postSignal('left') # flipped!
 
-        UTdebug.log(15, 'X: {}'.format(X))
         UTdebug.log(15, 'Y: {}'.format(Y))
-        UTdebug.log(15, 'scores: {}'.format(scores))
-
-class PositionVelocityBlocker(Node):
-    def __init__(self):
-        super(PositionVelocityBlocker, self).__init__()
-
-    def run(self):
-        ball = mem_objects.world_objects[core.WO_BALL]
-        commands.setHeadPan(ball.bearing, .3)
-        if not ball.seen:
-            return
-
-        # Turn head to face ball
-        ball_frame_x, ball_frame_y = ball.imageCenterX, ball.imageCenterY
-        x_head_turn = -(ball_frame_x-(320.0 / 2.0)) / 160.0
-        commands.setHeadPan(x_head_turn, .5)
-
-        # Read ball coordinates
-        x, y = ball.loc.x, ball.loc.y
-        dx, dy = ball.absVel.x, ball.absVel.y
-
-        # Tranform into clf space
-        x_, y_, = transform_p(x, y)
-        dx_, dy_, = transform_v(dx, dy)
-
-        UTdebug.log(15, 'X: [{}, {}, {}, {}]'.format(x_, y_, dx_, dy_))
-        UTdebug.log(15, "Position: (x={}, y={})".format(*transform_p(x, y)))
-        UTdebug.log(15, "Velocity: (dx={}, dy={})".format(*transform_v(dx, dy)))
-
-        # Predict based on the position
-        X = np.array([x_, y_, dx_, dy_]).reshape(4, 1)
-        scores, y = clf.predict(X)
-
-        UTdebug.log(15, 'Y: {}'.format(y))
         UTdebug.log(15, 'scores: {}'.format(scores))
 
 class Playing(LoopingStateMachine):
     def setup(self):
-        blockers = {
-                'position': PositionBlocker(),
-                'position+velocity': PositionVelocityBlocker(),
-                'distance+bearing': DistanceBearingBlocker() }
+        blocker = WindowedBlocker() if WINDOW_SIZE else MarkovBlocker()
 
-        self.trans(
-                blockers[FEATURES], C,
-                BLOCK_ACTION, C,
-                SIT_ACTION, C,
-                blockers[FEATURES])
+        signals = ('left', 'middle', 'right')
+        block_actions = (LEFT_BLOCK_ACTION, MIDDLE_BLOCK_ACTION, RIGHT_BLOCK_ACTION)
+        for signal, block_action in zip(signals, block_actions):
+            self.trans(blocker, S(signal), block_action, C, SIT_ACTION, C, blocker)
 
         self.setFinish(None) # This ensures that the last node in trans is not the final node
