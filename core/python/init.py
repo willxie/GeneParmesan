@@ -45,7 +45,7 @@ def processFrame():
       initNonMemory(initLoc=False)
       memory.speech.say("Vision")
       firstFrame = False
-    
+
     core.visionC.processFrame()
     core.instance.postVision()
     core.localizationC.processFrame()
@@ -59,8 +59,8 @@ def processFrame():
 behaviorLoaded = False
 def processBehaviorFrame():
   global behaviorLoaded
-  if not behaviorLoaded: 
-    runBehavior("keeper")
+  if not behaviorLoaded:
+    runBehavior("tournament")
     behaviorLoaded = True
   try:
     if memory.robot_state.WO_SELF != core.WO_TEAM_COACH:
@@ -69,7 +69,7 @@ def processBehaviorFrame():
       initMemory()
     core.pythonC.updatePercepts()
     behavior.processFrame()
-  except: 
+  except:
     handle()
 
 def handle():
@@ -84,4 +84,3 @@ def handle():
   core.pythonC.is_ok_ = False
   with open(os.path.expanduser('~/error.txt'), 'w') as f:
     f.write(message)
-

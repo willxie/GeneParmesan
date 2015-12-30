@@ -319,7 +319,7 @@ class Set(Task):
   def run(self):
     commands.stand()
     if self.getTime() > 3.0:
-      memory.speech.say("I am ready")
+      memory.speech.say("Goalie!")
       self.finish()
 
 class Playing(StateMachine):
